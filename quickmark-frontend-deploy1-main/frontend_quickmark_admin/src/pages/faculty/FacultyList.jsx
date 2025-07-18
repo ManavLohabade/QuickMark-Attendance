@@ -5,6 +5,7 @@ import { Filter, Printer, Upload, BookOpen } from 'lucide-react';
 import AddEditFacultyModal from './AddEditFacultyModal.jsx';
 import SubjectAssignmentModal from './SubjectAssignmentModal.jsx';
 import Pagination from '../../components/common/Pagination';
+import Papa from 'papaparse';
 
 export default function FacultyList({ 
   faculty, 
@@ -106,7 +107,34 @@ export default function FacultyList({
     const handleFileImport = (e) => {
         const file = e.target.files[0];
         if (file) {
-            alert(`Importing faculty from ${file.name}...`);
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: async (results) => {
+                    // Validate required fields
+                    const required = ['name', 'email', 'department_id'];
+                    const missing = results.data.filter(row => required.some(f => !row[f]));
+                    if (missing.length > 0) {
+                        alert('Some rows are missing required fields.');
+                        return;
+                    }
+                    try {
+                        // TODO: Replace with actual backend bulk-create endpoint
+                        await fetch('https://quickmark-backend-deploy1.onrender.com/api/admin/faculty/bulk', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('adminToken')}` },
+                            body: JSON.stringify({ faculty: results.data })
+                        });
+                        alert('Faculty imported successfully!');
+                        window.location.reload();
+                    } catch (err) {
+                        alert('Error importing faculty: ' + err.message);
+                    }
+                },
+                error: (err) => {
+                    alert('Error parsing file: ' + err.message);
+                }
+            });
         }
     };
 

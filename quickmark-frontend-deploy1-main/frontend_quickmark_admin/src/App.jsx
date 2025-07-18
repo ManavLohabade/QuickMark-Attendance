@@ -14,7 +14,9 @@ import AddEditStudentForm from "./pages/students/AddEditStudentForm";
 import Login from "./pages/auth/Login";
 import Calendar from "./pages/subjects/Calendar";
 import EnrolledStudents from "./pages/subjects/EnrolledStudents";
-import Degree from "./pages/degree/Degree";
+import DegreesManager from "./pages/admin/DegreesManager";
+import AdminActivityLog from "./pages/admin/AdminActivityLog";
+import axios from "axios";
 
 // --- Import API utilities ---
 import { 
@@ -58,6 +60,7 @@ export default function App() {
   const [students, setStudents] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [defaulters, setDefaulters] = useState([]);
+  const [degrees, setDegrees] = useState([]);
 
   // --- Pagination state ---
   const [pagination, setPagination] = useState({
@@ -108,7 +111,8 @@ export default function App() {
         fetchStudents(),
         fetchSubjects(),
         fetchDefaulters(),
-        fetchAttendanceThreshold()
+        fetchAttendanceThreshold(),
+        fetchDegrees(),
       ]);
     } catch (error) {
       console.error('Error fetching initial data:', error);
@@ -219,6 +223,17 @@ export default function App() {
       setAttendanceThreshold(threshold);
     } catch (error) {
       console.error('Error fetching attendance threshold:', error);
+    }
+  };
+
+  // Fetch degrees
+  const fetchDegrees = async () => {
+    try {
+      const response = await axios.get("https://quickmark-backend-deploy1.onrender.com/api/degrees");
+      setDegrees(response.data);
+    } catch (error) {
+      console.error('Error fetching degrees:', error);
+      showNotification('Failed to load degrees', 'error');
     }
   };
 
@@ -553,8 +568,28 @@ export default function App() {
       case "Departments":
         return <DepartmentPage 
           departments={departments} 
-          onAdd={handleAddDepartment} 
-          onDelete={handleDeleteDepartment} 
+          degrees={degrees}
+          onAdd={async ({ name, degree_id }) => {
+            try {
+              await departmentAPI.create({ name, degree_id });
+              await fetchDepartments();
+              showNotification('Department created successfully', 'success');
+            } catch (error) {
+              showNotification(error.message || 'Failed to create department', 'error');
+              throw error;
+            }
+          }}
+          onEdit={async ({ department_id, name, degree_id }) => {
+            try {
+              await departmentAPI.update(department_id, { name, degree_id });
+              await fetchDepartments();
+              showNotification('Department updated successfully', 'success');
+            } catch (error) {
+              showNotification(error.message || 'Failed to update department', 'error');
+              throw error;
+            }
+          }}
+          onDelete={handleDeleteDepartment}
           onSelectDepartment={handleNavigateWithFilter}
           pagination={pagination.departments}
           onPageChange={(page) => handlePageChange('departments', page)}
@@ -588,7 +623,13 @@ export default function App() {
         />;
 
       case "Degree":
-        return <Degree />;
+        return <DegreesManager />;
+
+      case "DegreesManager":
+        return <DegreesManager />;
+
+      case "AdminActivityLog":
+        return <AdminActivityLog />;
 
       default:
         return <Dashboard 
@@ -615,6 +656,8 @@ export default function App() {
       case "Settings": return "Settings";
       case "AddEditStudent": return selectedStudent ? "Edit Student" : "Add Student";
       case "Calendar": return `Attendance for ${selectedStudent?.name}`;
+      case "Degree": return "Degree";
+      case "AdminActivityLog": return "Admin Activity Log";
       default: return "Dashboard";
     }
   };

@@ -19,8 +19,8 @@ export default function SubjectsManager() {
         try {
             const token = getAdminToken();
             const [deptRes, subjRes] = await Promise.all([
-                axios.get("http://localhost:3700/api/admin/departments", { headers: { Authorization: `Bearer ${token}` } }),
-                axios.get("http://localhost:3700/api/admin/subjects", { headers: { Authorization: `Bearer ${token}` } }),
+                axios.get("https://quickmark-backend-deploy1.onrender.com/api/admin/departments", { headers: { Authorization: `Bearer ${token}` } }),
+                axios.get("https://quickmark-backend-deploy1.onrender.com/api/admin/subjects", { headers: { Authorization: `Bearer ${token}` } }),
             ]);
             setDepartments(deptRes.data);
             setSubjects(subjRes.data);
@@ -45,7 +45,7 @@ export default function SubjectsManager() {
         try {
             const token = getAdminToken();
             await axios.post(
-                "http://localhost:3700/api/admin/subjects",
+                "https://quickmark-backend-deploy1.onrender.com/api/admin/subjects",
                 {
                     subject_name: newSubject.subject_name,
                     subject_code: newSubject.subject_code,
@@ -74,7 +74,7 @@ export default function SubjectsManager() {
         try {
             const token = getAdminToken();
             await axios.put(
-                `http://localhost:3700/api/admin/subjects/${editingSubject.subject_id}`,
+                `https://quickmark-backend-deploy1.onrender.com/api/admin/subjects/${editingSubject.subject_id}`,
                 {
                     subject_name: editSubject.subject_name,
                     subject_code: editSubject.subject_code,
@@ -100,7 +100,7 @@ export default function SubjectsManager() {
         try {
             const token = getAdminToken();
             await axios.delete(
-                `http://localhost:3700/api/admin/subjects/${subjectId}`,
+                `https://quickmark-backend-deploy1.onrender.com/api/admin/subjects/${subjectId}`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             fetchData();

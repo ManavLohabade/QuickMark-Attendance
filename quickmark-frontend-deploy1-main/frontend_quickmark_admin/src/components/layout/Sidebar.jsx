@@ -9,6 +9,7 @@ import {
   Settings,
   Building,
   GraduationCap, // Add this for Degree icon
+  Activity,
 } from "lucide-react";
 
 export default function Sidebar({ currentPage, navigateTo, onLogout }) {
@@ -22,6 +23,7 @@ export default function Sidebar({ currentPage, navigateTo, onLogout }) {
     { path: "Students", label: "Students", icon: User },
     { path: "Defaulters", label: "Defaulters", icon: ShieldAlert },
     { path: "FaceRegister", label: "Face Register", icon: "📷" },
+    { path: "AdminActivityLog", label: "Activity Log", icon: Activity },
     { path: "Settings", label: "Settings", icon: Settings },
   ];
 

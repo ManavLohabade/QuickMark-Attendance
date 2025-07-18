@@ -10,7 +10,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { ChevronLeft, ChevronRight, BookOpen, Users, AlertTriangle, GraduationCap, Building, Settings } from "lucide-react";
+import { ChevronLeft, ChevronRight, BookOpen, Users, AlertTriangle, GraduationCap, Building, Settings, Activity, Camera, X } from "lucide-react";
 import InfoCard from "./InfoCard.jsx";
 
 const ITEMS_PER_PAGE = 5;
@@ -37,20 +37,38 @@ export default function Dashboard({ allStudents, allSubjects, allFaculty, allDep
 
   const chartData = useMemo(() => {
     if (!allStudents || !allSubjects) return [];
+    
     const defaultersBySubject = allSubjects.map((subject) => {
-      const studentsInSubject = allStudents.filter(
-        (student) =>
-          student.department === subject.department &&
-          student.startYear === subject.startYear
-      );
-      const defaulterCount = studentsInSubject.filter(
-        (student) => student.attendance < 75
-      ).length;
-      return { ...subject, defaulters: defaulterCount };
+      // Get subject properties with fallbacks
+      const subjectYear = subject.startYear || subject.year || subject.current_year || subject.academic_year;
+      const subjectDepartment = subject.department || subject.department_name || subject.department_id;
+      const subjectFaculty = subject.faculty || subject.faculty_name || subject.faculty_id || subject.instructor;
+      
+      // Filter students by department and year
+      const studentsInSubject = allStudents.filter((student) => {
+        const studentDepartment = student.department || student.department_name || student.department_id;
+        const studentYear = student.startYear || student.year || student.current_year || student.academic_year;
+        
+        return studentDepartment === subjectDepartment && studentYear === subjectYear;
+      });
+      
+      // Count defaulters (students with attendance < 75)
+      const defaulterCount = studentsInSubject.filter((student) => {
+        const attendance = student.attendance || student.attendance_percentage || 0;
+        return attendance < 75;
+      }).length;
+      
+      return { 
+        ...subject, 
+        defaulters: defaulterCount,
+        year: subjectYear,
+        department: subjectDepartment,
+        faculty: subjectFaculty
+      };
     });
 
     return defaultersBySubject.filter((subject) => {
-      const yearMatch = filters.year ? subject.startYear.toString() === filters.year : true;
+      const yearMatch = filters.year ? subject.year?.toString() === filters.year : true;
       const departmentMatch = filters.department ? subject.department === filters.department : true;
       const facultyMatch = filters.faculty ? subject.faculty === filters.faculty : true;
       return yearMatch && departmentMatch && facultyMatch;
@@ -68,17 +86,52 @@ export default function Dashboard({ allStudents, allSubjects, allFaculty, allDep
     setFilters((prev) => ({ ...prev, [name]: value }));
     setCurrentPage(0);
   };
+
+  const clearFilters = () => {
+    setFilters({ year: "", department: "", faculty: "" });
+    setCurrentPage(0);
+  };
   const goToNextPage = () => setCurrentPage((prev) => Math.min(prev + 1, totalPages - 1));
   const goToPrevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 0));
 
-  const uniqueYears = useMemo(() => [...new Set(allSubjects?.map((s) => s.startYear) || [])], [allSubjects]);
-  const uniqueDepartments = useMemo(() => [...new Set(allSubjects?.map((s) => s.department) || [])], [allSubjects]);
-  const uniqueFaculty = useMemo(() => [...new Set(allSubjects?.map((s) => s.faculty) || [])], [allSubjects]);
+  // Get unique values for dropdowns with fallbacks for different data structures
+  const uniqueYears = useMemo(() => {
+    if (!allSubjects || allSubjects.length === 0) return [];
+    
+    const years = allSubjects
+      .map((s) => s.startYear || s.year || s.current_year || s.academic_year)
+      .filter(Boolean)
+      .sort((a, b) => a - b);
+    
+    return [...new Set(years)];
+  }, [allSubjects]);
+
+  const uniqueDepartments = useMemo(() => {
+    if (!allSubjects || allSubjects.length === 0) return [];
+    
+    const departments = allSubjects
+      .map((s) => s.department || s.department_name || s.department_id)
+      .filter(Boolean)
+      .sort();
+    
+    return [...new Set(departments)];
+  }, [allSubjects]);
+
+  const uniqueFaculty = useMemo(() => {
+    if (!allSubjects || allSubjects.length === 0) return [];
+    
+    const faculty = allSubjects
+      .map((s) => s.faculty || s.faculty_name || s.faculty_id || s.instructor)
+      .filter(Boolean)
+      .sort();
+    
+    return [...new Set(faculty)];
+  }, [allSubjects]);
 
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         <InfoCard
           title="Total Degrees"
           value={stats.degrees || 0}
@@ -122,6 +175,20 @@ export default function Dashboard({ allStudents, allSubjects, allFaculty, allDep
           IconComponent={AlertTriangle}
         />
         <InfoCard
+          title="Activity Log"
+          value=""
+          navigate={navigateTo}
+          linkTo="AdminActivityLog"
+          IconComponent={Activity}
+        />
+        <InfoCard
+          title="Face Register"
+          value=""
+          navigate={navigateTo}
+          linkTo="FaceRegister"
+          IconComponent={Camera}
+        />
+        <InfoCard
           title="Settings"
           value=""
           navigate={navigateTo}
@@ -136,19 +203,72 @@ export default function Dashboard({ allStudents, allSubjects, allFaculty, allDep
         
         {allSubjects && allSubjects.length > 0 ? (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-              <select name="year" value={filters.year} onChange={handleFilterChange} className="p-2 border rounded-md bg-gray-50">
-                <option value="">All Years</option>
-                {uniqueYears.map((y, index) => (<option key={`year-${index}`} value={y}>{y}</option>))}
-              </select>
-              <select name="department" value={filters.department} onChange={handleFilterChange} className="p-2 border rounded-md bg-gray-50">
-                <option value="">All Departments</option>
-                {uniqueDepartments.map((d, index) => (<option key={`dept-${index}`} value={d}>{d}</option>))}
-              </select>
-              <select name="faculty" value={filters.faculty} onChange={handleFilterChange} className="p-2 border rounded-md bg-gray-50">
-                <option value="">All Faculty</option>
-                {uniqueFaculty.map((f, index) => (<option key={`faculty-${index}`} value={f}>{f}</option>))}
-              </select>
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-800">Filters</h3>
+                {(filters.year || filters.department || filters.faculty) && (
+                  <button
+                    onClick={clearFilters}
+                    className="flex items-center gap-2 px-3 py-1 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
+                  >
+                    <X size={16} />
+                    Clear Filters
+                  </button>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Year</label>
+                  <select 
+                    name="year" 
+                    value={filters.year} 
+                    onChange={handleFilterChange} 
+                    className="w-full p-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">All Years</option>
+                    {uniqueYears.map((y, index) => (
+                      <option key={`year-${index}`} value={y}>
+                        {y}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Department</label>
+                  <select 
+                    name="department" 
+                    value={filters.department} 
+                    onChange={handleFilterChange} 
+                    className="w-full p-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">All Departments</option>
+                    {uniqueDepartments.map((d, index) => (
+                      <option key={`dept-${index}`} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Faculty</label>
+                  <select 
+                    name="faculty" 
+                    value={filters.faculty} 
+                    onChange={handleFilterChange} 
+                    className="w-full p-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">All Faculty</option>
+                    {uniqueFaculty.map((f, index) => (
+                      <option key={`faculty-${index}`} value={f}>
+                        {f}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
 
             <div style={{ width: "100%", height: 400 }}>

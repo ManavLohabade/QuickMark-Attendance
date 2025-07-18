@@ -3,6 +3,7 @@ import React, { useState, useMemo, useRef, useEffect } from "react";
 import { List, LayoutGrid, Filter, X } from "lucide-react";
 import Pagination from "../../components/common/Pagination";
 import axios from "axios";
+import Papa from 'papaparse';
 // import AddEditSubjectModal from "./AddEditSubjectModal.jsx";
 
 // The AddEditSubjectModal component remains unchanged
@@ -295,6 +296,40 @@ export default function SubjectsList({
     }
   };
 
+  const handleFileImport = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          // Validate required fields
+          const required = ['subject_name', 'subject_code', 'department_id', 'year', 'section', 'semester'];
+          const missing = results.data.filter(row => required.some(f => !row[f]));
+          if (missing.length > 0) {
+            alert('Some rows are missing required fields.');
+            return;
+          }
+          try {
+            // TODO: Replace with actual backend bulk-create endpoint
+            await fetch('https://quickmark-backend-deploy1.onrender.com/api/admin/subjects/bulk', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('adminToken')}` },
+              body: JSON.stringify({ subjects: results.data })
+            });
+            alert('Subjects imported successfully!');
+            window.location.reload();
+          } catch (err) {
+            alert('Error importing subjects: ' + err.message);
+          }
+        },
+        error: (err) => {
+          alert('Error parsing file: ' + err.message);
+        }
+      });
+    }
+  };
+
   return (
     <>
       {isModalOpen && (
@@ -431,6 +466,16 @@ export default function SubjectsList({
               >
                 Add Subject
               </button>
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleFileImport}
+                className="hidden"
+                id="csv-upload"
+              />
+              <label htmlFor="csv-upload" className="ml-2 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 text-sm font-semibold cursor-pointer">
+                Import CSV
+              </label>
             </div>
           </div>
           <div className="overflow-x-auto">

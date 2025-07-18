@@ -201,6 +201,10 @@ export const studentAPI = {
       method: 'DELETE',
     });
   },
+
+  getPhotoHistory: async (studentId) => {
+    return await apiRequest(`/students/${studentId}/photo-history`);
+  },
 };
 
 // Subject APIs
@@ -431,6 +435,7 @@ export const dataTransformers = {
     department: (departmentData) => {
       return {
         name: departmentData.name,
+        degree_id: departmentData.degree_id,
       };
     },
   },

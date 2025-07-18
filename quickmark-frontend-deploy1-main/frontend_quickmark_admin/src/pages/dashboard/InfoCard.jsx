@@ -27,6 +27,14 @@ const cardGradients = {
     gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     text: '#fff',
   },
+  'Activity Log': {
+    gradient: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
+    text: '#231123',
+  },
+  'Face Register': {
+    gradient: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+    text: '#231123',
+  },
 };
 
 export default function InfoCard({ title, value, navigate, linkTo, IconComponent }) {

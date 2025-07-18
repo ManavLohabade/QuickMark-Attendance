@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Filter, Printer, Upload } from 'lucide-react';
+import Papa from 'papaparse';
 
 const API_URL = '/api/degrees';
 
@@ -115,7 +116,34 @@ export default function Degree() {
   const handleFileImport = (e) => {
     const file = e.target.files[0];
     if (file) {
-      alert(`Importing degrees from ${file.name}...`);
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          // Validate required fields
+          const required = ['name'];
+          const missing = results.data.filter(row => required.some(f => !row[f]));
+          if (missing.length > 0) {
+            alert('Some rows are missing required fields.');
+            return;
+          }
+          try {
+            // TODO: Replace with actual backend bulk-create endpoint
+            await fetch('https://quickmark-backend-deploy1.onrender.com/api/admin/degrees/bulk', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('adminToken')}` },
+              body: JSON.stringify({ degrees: results.data })
+            });
+            alert('Degrees imported successfully!');
+            window.location.reload();
+          } catch (err) {
+            alert('Error importing degrees: ' + err.message);
+          }
+        },
+        error: (err) => {
+          alert('Error parsing file: ' + err.message);
+        }
+      });
     }
   };
 

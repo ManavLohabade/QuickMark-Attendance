@@ -4,23 +4,40 @@ import { PlusCircle, Edit, Trash2 } from "lucide-react";
 
 export default function DepartmentsManager() {
     const [departments, setDepartments] = useState([]);
+    const [degrees, setDegrees] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [newDepartmentName, setNewDepartmentName] = useState("");
+    const [newDepartmentDegree, setNewDepartmentDegree] = useState("");
     const [editingDepartment, setEditingDepartment] = useState(null);
     const [editDepartmentName, setEditDepartmentName] = useState("");
+    const [editDepartmentDegree, setEditDepartmentDegree] = useState("");
+    const [degreeFilter, setDegreeFilter] = useState("");
 
     const getAdminToken = () => localStorage.getItem("adminToken");
 
-    const fetchDepartments = async () => {
+    const fetchDegrees = async () => {
+        try {
+            const response = await axios.get("https://quickmark-backend-deploy1.onrender.com/api/degrees");
+            setDegrees(response.data);
+        } catch (err) {
+            setError("Failed to load degrees.");
+        }
+    };
+
+    const fetchDepartments = async (degreeId = "") => {
         setLoading(true);
         setError("");
         try {
             const token = getAdminToken();
-            const response = await axios.get("http://localhost:3700/api/admin/departments", {
+            let url = "https://quickmark-backend-deploy1.onrender.com/api/admin/departments";
+            if (degreeId) {
+                url += `?degree_id=${degreeId}`;
+            }
+            const response = await axios.get(url, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            setDepartments(response.data);
+            setDepartments(response.data.departments || response.data);
         } catch (err) {
             setError("Failed to load departments.");
         } finally {
@@ -29,24 +46,32 @@ export default function DepartmentsManager() {
     };
 
     useEffect(() => {
+        fetchDegrees();
         fetchDepartments();
     }, []);
+
+    const handleDegreeFilterChange = (e) => {
+        const value = e.target.value;
+        setDegreeFilter(value);
+        fetchDepartments(value);
+    };
 
     const handleCreateDepartment = async (e) => {
         e.preventDefault();
         setError("");
-        if (!newDepartmentName.trim()) {
-            setError("Department name cannot be empty.");
+        if (!newDepartmentName.trim() || !newDepartmentDegree) {
+            setError("Department name and degree are required.");
             return;
         }
         try {
             const token = getAdminToken();
             await axios.post(
-                "http://localhost:3700/api/admin/departments",
-                { name: newDepartmentName },
+                "https://quickmark-backend-deploy1.onrender.com/api/admin/departments",
+                { name: newDepartmentName, degree_id: newDepartmentDegree },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             setNewDepartmentName("");
+            setNewDepartmentDegree("");
             fetchDepartments();
         } catch (err) {
             setError("Failed to create department.");
@@ -56,19 +81,20 @@ export default function DepartmentsManager() {
     const handleUpdateDepartment = async (e) => {
         e.preventDefault();
         setError("");
-        if (!editDepartmentName.trim()) {
-            setError("Department name cannot be empty.");
+        if (!editDepartmentName.trim() || !editDepartmentDegree) {
+            setError("Department name and degree are required.");
             return;
         }
         try {
             const token = getAdminToken();
             await axios.put(
-                `http://localhost:3700/api/admin/departments/${editingDepartment.department_id}`,
-                { name: editDepartmentName },
+                `https://quickmark-backend-deploy1.onrender.com/api/admin/departments/${editingDepartment.department_id}`,
+                { name: editDepartmentName, degree_id: editDepartmentDegree },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             setEditingDepartment(null);
             setEditDepartmentName("");
+            setEditDepartmentDegree("");
             fetchDepartments();
         } catch (err) {
             setError("Failed to update department.");
@@ -81,7 +107,7 @@ export default function DepartmentsManager() {
         try {
             const token = getAdminToken();
             await axios.delete(
-                `http://localhost:3700/api/admin/departments/${departmentId}`,
+                `https://quickmark-backend-deploy1.onrender.com/api/admin/departments/${departmentId}`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             fetchDepartments();
@@ -93,6 +119,19 @@ export default function DepartmentsManager() {
     return (
         <div className="p-4 border rounded-lg shadow-sm bg-white">
             <h2 className="text-xl font-semibold mb-4 text-center">Departments</h2>
+            <div className="mb-4 flex space-x-2 items-center">
+                <label className="font-medium">Filter by Degree:</label>
+                <select
+                    value={degreeFilter}
+                    onChange={handleDegreeFilterChange}
+                    className="px-4 py-2 border rounded-lg"
+                >
+                    <option value="">All Degrees</option>
+                    {degrees.map(deg => (
+                        <option key={deg.degree_id} value={deg.degree_id}>{deg.name}</option>
+                    ))}
+                </select>
+            </div>
             <form onSubmit={handleCreateDepartment} className="mb-4 flex space-x-2">
                 <input
                     type="text"
@@ -102,6 +141,17 @@ export default function DepartmentsManager() {
                     className="flex-grow px-4 py-2 border rounded-lg"
                     required
                 />
+                <select
+                    value={newDepartmentDegree}
+                    onChange={e => setNewDepartmentDegree(e.target.value)}
+                    className="px-4 py-2 border rounded-lg"
+                    required
+                >
+                    <option value="">Select Degree</option>
+                    {degrees.map(deg => (
+                        <option key={deg.degree_id} value={deg.degree_id}>{deg.name}</option>
+                    ))}
+                </select>
                 <button type="submit" className="bg-green-500 text-white px-4 py-2 rounded-lg flex items-center">
                     <PlusCircle size={20} className="mr-2" /> Add
                 </button>
@@ -114,7 +164,7 @@ export default function DepartmentsManager() {
                     <thead>
                         <tr className="bg-gray-100 border-b">
                             <th className="py-2 px-4 text-left">Name</th>
-                            <th className="py-2 px-4 text-left">ID</th>
+                            <th className="py-2 px-4 text-left">Degree</th>
                             <th className="py-2 px-4 text-left">Actions</th>
                         </tr>
                     </thead>
@@ -122,12 +172,15 @@ export default function DepartmentsManager() {
                         {departments.map((dept) => (
                             <tr key={dept.department_id} className="border-b last:border-b-0 hover:bg-gray-50">
                                 <td className="py-2 px-4">{dept.name}</td>
-                                <td className="py-2 px-4 text-xs text-gray-500">{dept.department_id}</td>
+                                <td className="py-2 px-4 text-xs text-gray-700">
+                                    {degrees.find(d => d.degree_id === dept.degree_id)?.name || '—'}
+                                </td>
                                 <td className="py-2 px-4 flex space-x-2">
                                     <button
                                         onClick={() => {
                                             setEditingDepartment(dept);
                                             setEditDepartmentName(dept.name);
+                                            setEditDepartmentDegree(dept.degree_id);
                                         }}
                                         className="text-blue-500 hover:text-blue-700 p-1 rounded-full hover:bg-blue-100"
                                         title="Edit"
@@ -160,12 +213,24 @@ export default function DepartmentsManager() {
                                 className="w-full px-3 py-2 border rounded-lg mb-4"
                                 required
                             />
+                            <select
+                                value={editDepartmentDegree}
+                                onChange={e => setEditDepartmentDegree(e.target.value)}
+                                className="w-full px-3 py-2 border rounded-lg mb-4"
+                                required
+                            >
+                                <option value="">Select Degree</option>
+                                {degrees.map(deg => (
+                                    <option key={deg.degree_id} value={deg.degree_id}>{deg.name}</option>
+                                ))}
+                            </select>
                             <div className="flex justify-end space-x-2">
                                 <button
                                     type="button"
                                     onClick={() => {
                                         setEditingDepartment(null);
                                         setEditDepartmentName("");
+                                        setEditDepartmentDegree("");
                                     }}
                                     className="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400"
                                 >

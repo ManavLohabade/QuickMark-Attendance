@@ -3,6 +3,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Filter, Upload, Printer, Calendar as CalendarIcon } from 'lucide-react';
 import Pagination from '../../components/common/Pagination';
 import Calendar from '../subjects/Calendar.jsx';
+import Papa from 'papaparse';
 
 export default function StudentsList({ 
   students, 
@@ -85,7 +86,34 @@ export default function StudentsList({
   const handleFileImport = (e) => {
       const file = e.target.files[0];
       if (file) {
-          alert(`Importing students from ${file.name}...`);
+          Papa.parse(file, {
+              header: true,
+              skipEmptyLines: true,
+              complete: async (results) => {
+                  // Validate required fields
+                  const required = ['name', 'roll_number', 'email', 'department_id', 'current_year', 'section'];
+                  const missing = results.data.filter(row => required.some(f => !row[f]));
+                  if (missing.length > 0) {
+                      alert('Some rows are missing required fields.');
+                      return;
+                  }
+                  try {
+                      // TODO: Replace with actual backend bulk-create endpoint
+                      await fetch('https://quickmark-backend-deploy1.onrender.com/api/admin/students/bulk', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('adminToken')}` },
+                          body: JSON.stringify({ students: results.data })
+                      });
+                      alert('Students imported successfully!');
+                      window.location.reload();
+                  } catch (err) {
+                      alert('Error importing students: ' + err.message);
+                  }
+              },
+              error: (err) => {
+                  alert('Error parsing file: ' + err.message);
+              }
+          });
       }
   };
 
