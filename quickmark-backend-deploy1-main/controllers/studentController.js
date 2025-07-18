@@ -4,6 +4,78 @@ const { comparePassword } = require('../utils/passwordHasher');
 const { generateToken } = require('../config/jwt');
 const redisClient = require('../config/redis');
 const jwt = require('jsonwebtoken');
+const { registerStudentFace } = require('../models/studentModel');
+const multer = require('multer');
+const sharp = require('sharp');
+const { saveLocalImage } = require('../utils/storage');
+const { updateStudentPhotoUrl } = require('../models/studentModel');
+const { addStudentPhotoHistory, getStudentPhotoHistory } = require('../models/studentModel');
+
+// Multer setup for memory storage
+const upload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only JPEG and PNG images are allowed'));
+    }
+  },
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+});
+
+// Controller for uploading student photo
+exports.uploadStudentPhoto = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    const studentId = req.params.id;
+    // Compress and convert image to JPEG
+    const compressedBuffer = await sharp(req.file.buffer)
+      .resize(400, 400, { fit: 'cover' })
+      .jpeg({ quality: 80 })
+      .toBuffer();
+    // Save locally
+    const photoUrl = saveLocalImage({
+      originalname: req.file.originalname,
+      buffer: compressedBuffer,
+    });
+    // Update DB
+    const updatedStudent = await updateStudentPhotoUrl(studentId, photoUrl);
+    // Record in photo history
+    let uploaded_by = null, uploaded_by_role = null;
+    if (req.user) {
+      if (req.user.isAdmin) {
+        uploaded_by = req.user.admin_id || req.user.id;
+        uploaded_by_role = 'admin';
+      } else if (req.user.isStudent) {
+        uploaded_by = req.user.id;
+        uploaded_by_role = 'student';
+      }
+    }
+    await addStudentPhotoHistory({
+      student_id: studentId,
+      photo_url: photoUrl,
+      uploaded_by,
+      uploaded_by_role
+    });
+    res.json({ student: updatedStudent });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Error uploading photo' });
+  }
+};
+
+// Get photo history for a student
+exports.getStudentPhotoHistory = async (req, res) => {
+  try {
+    const studentId = req.params.id;
+    const history = await getStudentPhotoHistory(studentId);
+    res.json({ history });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Error fetching photo history' });
+  }
+};
+
+exports.upload = upload;
 
 // Student Login
 const loginStudent = async (req, res) => {
@@ -216,6 +288,30 @@ const registerStudent = async (req, res) => {
     }
 };
 
+// Register or update a student's face
+const registerFace = async (req, res) => {
+    const studentId = req.params.id;
+    const { face_image_url } = req.body;
+
+    if (!face_image_url) {
+        return res.status(400).json({ message: 'face_image_url is required.' });
+    }
+
+    try {
+        const result = await registerStudentFace(studentId, face_image_url);
+        if (!result) {
+            return res.status(404).json({ message: 'Student not found.' });
+        }
+        res.status(200).json({
+            message: 'Face registered successfully.',
+            student: result
+        });
+    } catch (error) {
+        console.error('Error registering student face:', error);
+        res.status(500).json({ message: 'Internal server error registering face.' });
+    }
+};
+
 // Public: Get all departments (for registration, etc.)
 const getAllDepartmentsPublic = async (req, res) => {
     try {
@@ -234,5 +330,9 @@ module.exports = {
     markAttendanceByLoggedInStudent,
     getStudentCalendar,
     registerStudent,
-    getAllDepartmentsPublic
+    registerFace,
+    getAllDepartmentsPublic,
+    uploadStudentPhoto: exports.uploadStudentPhoto,
+    upload: exports.upload,
+    getStudentPhotoHistory: exports.getStudentPhotoHistory
 };

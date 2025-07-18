@@ -5,6 +5,10 @@ const { comparePassword, hashPassword } = require('../utils/passwordHasher');
 const { generateToken } = require('../config/jwt');
 const archiver = require('archiver');
 const PDFDocument = require('pdfkit');
+const { bulkCreateStudents } = require('../models/studentModel');
+const logger = require('../utils/logger');
+const { bulkCreateFaculty, bulkCreateSubjects, bulkCreateDepartments, bulkCreateDegrees, logAdminAction } = require('../models/adminModel');
+const pool = require('../config/db').pool;
 
 // --- ADMIN AUTH ---
 const registerAdmin = async (req, res) => {
@@ -69,8 +73,9 @@ const loginAdmin = async (req, res) => {
 const getDepartments = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
+    const degree_id = req.query.degree_id || null;
     try {
-        const { departments, totalItems, totalPages, currentPage } = await adminModel.getAllDepartments(page, limit);
+        const { departments, totalItems, totalPages, currentPage } = await adminModel.getAllDepartments(page, limit, degree_id);
         res.status(200).json({ departments, totalItems, totalPages, currentPage });
     } catch (error) {
         console.error('Error getting departments:', error);
@@ -79,49 +84,101 @@ const getDepartments = async (req, res) => {
 };
 
 const createDepartment = async (req, res) => {
-    const { name } = req.body;
-    if (!name) {
-        return res.status(400).json({ message: 'Department name is required.' });
-    }
+    const adminId = req.user?.admin_id || req.user?.id || 'unknown';
     try {
-        const newDepartment = await adminModel.createDepartment(name);
+        const { name, degree_id } = req.body;
+        if (!name || !degree_id) {
+            return res.status(400).json({ message: 'Department name and degree_id are required.' });
+        }
+        const newDepartment = await adminModel.createDepartment(name, degree_id);
+        logger.info(`Admin ${adminId} created department ${newDepartment.department_id}`, {
+            action: 'create', entity: 'department', entity_id: newDepartment.department_id, admin_id: adminId
+        });
+        await logAdminAction({
+            admin_id: adminId,
+            action: 'create',
+            entity: 'department',
+            entity_id: newDepartment.department_id,
+            details: { name, degree_id }
+        });
         res.status(201).json({ message: 'Department created successfully.', department: newDepartment });
     } catch (error) {
-        console.error('Error creating department:', error);
+        logger.error(`Admin ${adminId} failed to create department: ${error.message}`, {
+            action: 'create', entity: 'department', admin_id: adminId, error: error.message
+        });
+        await logAdminAction({
+            admin_id: adminId,
+            action: 'create',
+            entity: 'department',
+            entity_id: null,
+            details: { error: error.message }
+        });
         res.status(500).json({ message: 'Internal server error creating department.' });
     }
 };
 
+// Department update
 const updateDepartment = async (req, res) => {
+  const adminId = req.user?.admin_id || req.user?.id || 'unknown';
+  try {
     const { department_id } = req.params;
-    const { name } = req.body;
-    if (!name) {
-        return res.status(400).json({ message: 'Department name is required.' });
-    }
-    try {
-        const updatedDepartment = await adminModel.updateDepartment(department_id, name);
-        if (!updatedDepartment) {
-            return res.status(404).json({ message: 'Department not found.' });
-        }
-        res.status(200).json({ message: 'Department updated successfully.', department: updatedDepartment });
-    } catch (error) {
-        console.error('Error updating department:', error);
-        res.status(500).json({ message: 'Internal server error updating department.' });
-    }
+    const { name, degree_id } = req.body;
+    const updatedDepartment = await adminModel.updateDepartment(department_id, name, degree_id);
+    logger.info(`Admin ${adminId} updated department ${department_id}`, {
+      action: 'update', entity: 'department', entity_id: department_id, admin_id: adminId
+    });
+    await logAdminAction({
+      admin_id: adminId,
+      action: 'update',
+      entity: 'department',
+      entity_id: department_id,
+      details: { name, degree_id }
+    });
+    res.status(200).json({ message: 'Department updated successfully.', department: updatedDepartment });
+  } catch (error) {
+    logger.error(`Admin ${adminId} failed to update department: ${error.message}`, {
+      action: 'update', entity: 'department', admin_id: adminId, error: error.message
+    });
+    await logAdminAction({
+      admin_id: adminId,
+      action: 'update',
+      entity: 'department',
+      entity_id: req.params.department_id,
+      details: { error: error.message }
+    });
+    res.status(500).json({ message: 'Internal server error updating department.' });
+  }
 };
 
 const deleteDepartment = async (req, res) => {
+  const adminId = req.user?.admin_id || req.user?.id || 'unknown';
+  try {
     const { department_id } = req.params;
-    try {
-        const deletedDepartment = await adminModel.deleteDepartment(department_id);
-        if (!deletedDepartment) {
-            return res.status(404).json({ message: 'Department not found.' });
-        }
-        res.status(200).json({ message: 'Department deleted successfully.' });
-    } catch (error) {
-        console.error('Error deleting department:', error);
-        res.status(500).json({ message: 'Internal server error deleting department.' });
-    }
+    await adminModel.deleteDepartment(department_id);
+    logger.info(`Admin ${adminId} deleted department ${department_id}`, {
+      action: 'delete', entity: 'department', entity_id: department_id, admin_id: adminId
+    });
+    await logAdminAction({
+      admin_id: adminId,
+      action: 'delete',
+      entity: 'department',
+      entity_id: department_id,
+      details: {}
+    });
+    res.status(200).json({ message: 'Department deleted successfully.' });
+  } catch (error) {
+    logger.error(`Admin ${adminId} failed to delete department: ${error.message}`, {
+      action: 'delete', entity: 'department', admin_id: adminId, error: error.message
+    });
+    await logAdminAction({
+      admin_id: adminId,
+      action: 'delete',
+      entity: 'department',
+      entity_id: req.params.department_id,
+      details: { error: error.message }
+    });
+    res.status(500).json({ message: 'Internal server error deleting department.' });
+  }
 };
 
 // --- FACULTY ---
@@ -138,12 +195,16 @@ const getFaculties = async (req, res) => {
 };
 
 const createFaculty = async (req, res) => {
-    const { name, email, password, department_id, subject_ids } = req.body;
-    if (!name || !email || !password || !department_id) {
-        return res.status(400).json({ message: 'All faculty fields are required.' });
-    }
+    const adminId = req.user?.admin_id || req.user?.id || 'unknown';
     try {
+        const { name, email, password, department_id, subject_ids } = req.body;
+        if (!name || !email || !password || !department_id) {
+            return res.status(400).json({ message: 'All faculty fields are required.' });
+        }
         const newFaculty = await adminModel.createFacultyByAdmin(name, email, password, department_id, subject_ids || []);
+        logger.info(`Admin ${adminId} created faculty ${newFaculty.faculty_id}`, {
+            action: 'create', entity: 'faculty', entity_id: newFaculty.faculty_id, admin_id: adminId
+        });
         res.status(201).json({ message: 'Faculty created successfully.', faculty: newFaculty });
     } catch (error) {
         console.error('Error creating faculty:', error);
@@ -152,33 +213,69 @@ const createFaculty = async (req, res) => {
 };
 
 const updateFaculty = async (req, res) => {
-    const { faculty_id } = req.params;
-    const { name, email, department_id, designation } = req.body;
-    if (!name || !email || !department_id) {
-        return res.status(400).json({ message: 'Name, email, and department are required for update.' });
-    }
+    const adminId = req.user?.admin_id || req.user?.id || 'unknown';
     try {
-        const updatedFaculty = await adminModel.updateFaculty(faculty_id, name, email, department_id, designation || 'Faculty');
-        if (!updatedFaculty) {
-            return res.status(404).json({ message: 'Faculty not found.' });
+        const { faculty_id } = req.params;
+        const { name, email, department_id, designation } = req.body;
+        if (!name || !email || !department_id) {
+            return res.status(400).json({ message: 'Name, email, and department are required for update.' });
         }
+        const updatedFaculty = await adminModel.updateFaculty(faculty_id, name, email, department_id, designation || 'Faculty');
+        logger.info(`Admin ${adminId} updated faculty ${faculty_id}`, {
+            action: 'update', entity: 'faculty', entity_id: faculty_id, admin_id: adminId
+        });
+        await logAdminAction({
+            admin_id: adminId,
+            action: 'update',
+            entity: 'faculty',
+            entity_id: faculty_id,
+            details: { name, email, department_id, designation }
+        });
         res.status(200).json({ message: 'Faculty updated successfully.', faculty: updatedFaculty });
     } catch (error) {
         console.error('Error updating faculty:', error);
+        logger.error(`Admin ${adminId} failed to update faculty: ${error.message}`, {
+            action: 'update', entity: 'faculty', admin_id: adminId, error: error.message
+        });
+        await logAdminAction({
+            admin_id: adminId,
+            action: 'update',
+            entity: 'faculty',
+            entity_id: req.params.faculty_id,
+            details: { error: error.message }
+        });
         res.status(500).json({ message: 'Internal server error updating faculty.' });
     }
 };
 
 const deleteFaculty = async (req, res) => {
-    const { faculty_id } = req.params;
+    const adminId = req.user?.admin_id || req.user?.id || 'unknown';
     try {
-        const deletedFaculty = await adminModel.deleteFaculty(faculty_id);
-        if (!deletedFaculty) {
-            return res.status(404).json({ message: 'Faculty not found.' });
-        }
+        const { faculty_id } = req.params;
+        await adminModel.deleteFaculty(faculty_id);
+        logger.info(`Admin ${adminId} deleted faculty ${faculty_id}`, {
+            action: 'delete', entity: 'faculty', entity_id: faculty_id, admin_id: adminId
+        });
+        await logAdminAction({
+            admin_id: adminId,
+            action: 'delete',
+            entity: 'faculty',
+            entity_id: faculty_id,
+            details: {}
+        });
         res.status(200).json({ message: 'Faculty deleted successfully.' });
     } catch (error) {
         console.error('Error deleting faculty:', error);
+        logger.error(`Admin ${adminId} failed to delete faculty: ${error.message}`, {
+            action: 'delete', entity: 'faculty', admin_id: adminId, error: error.message
+        });
+        await logAdminAction({
+            admin_id: adminId,
+            action: 'delete',
+            entity: 'faculty',
+            entity_id: req.params.faculty_id,
+            details: { error: error.message }
+        });
         res.status(500).json({ message: 'Internal server error deleting faculty.' });
     }
 };
@@ -187,8 +284,11 @@ const deleteFaculty = async (req, res) => {
 const getStudents = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
+    const departmentId = req.query.departmentId || null;
+    const year = req.query.year || null;
+    const section = req.query.section || null;
     try {
-        const { students, totalItems, totalPages, currentPage } = await adminModel.getAllStudents(page, limit);
+        const { students, totalItems, totalPages, currentPage } = await adminModel.getAllStudents(page, limit, departmentId, year, section);
         res.status(200).json({ students, totalItems, totalPages, currentPage });
     } catch (error) {
         console.error('Error getting students:', error);
@@ -197,22 +297,26 @@ const getStudents = async (req, res) => {
 };
 
 const createStudent = async (req, res) => {
-    const { roll_number, name, email, department_id, current_year, section } = req.body;
-    console.log('Creating student with data:', { roll_number, name, email, department_id, current_year, section });
-    console.log('Data types:', { 
-        roll_number: typeof roll_number, 
-        name: typeof name, 
-        email: typeof email, 
-        department_id: typeof department_id, 
-        current_year: typeof current_year, 
-        section: typeof section 
-    });
-    if (!roll_number || !name || !email || !department_id || !current_year || !section) {
-        console.log('Missing required fields:', { roll_number: !!roll_number, name: !!name, email: !!email, department_id: !!department_id, current_year: !!current_year, section: !!section });
-        return res.status(400).json({ message: 'All required student fields are missing.' });
-    }
+    const adminId = req.user?.admin_id || req.user?.id || 'unknown';
     try {
+        const { roll_number, name, email, department_id, current_year, section } = req.body;
+        console.log('Creating student with data:', { roll_number, name, email, department_id, current_year, section });
+        console.log('Data types:', { 
+            roll_number: typeof roll_number, 
+            name: typeof name, 
+            email: typeof email, 
+            department_id: typeof department_id, 
+            current_year: typeof current_year, 
+            section: typeof section 
+        });
+        if (!roll_number || !name || !email || !department_id || !current_year || !section) {
+            console.log('Missing required fields:', { roll_number: !!roll_number, name: !!name, email: !!email, department_id: !!department_id, current_year: !!current_year, section: !!section });
+            return res.status(400).json({ message: 'All required student fields are missing.' });
+        }
         const newStudent = await adminModel.createStudent(roll_number, name, email, department_id, current_year, section);
+        logger.info(`Admin ${adminId} created student ${newStudent.student_id}`, {
+            action: 'create', entity: 'student', entity_id: newStudent.student_id, admin_id: adminId
+        });
         res.status(201).json({ message: 'Student created successfully.', student: newStudent });
     } catch (error) {
         console.error('Error creating student:', error);
@@ -221,33 +325,69 @@ const createStudent = async (req, res) => {
 };
 
 const updateStudent = async (req, res) => {
-    const { student_id } = req.params;
-    const { roll_number, name, email, department_id, current_year, section } = req.body;
-    if (!roll_number || !name || !email || !department_id || !current_year || !section) {
-        return res.status(400).json({ message: 'All required student fields are missing for update.' });
-    }
+    const adminId = req.user?.admin_id || req.user?.id || 'unknown';
     try {
-        const updatedStudent = await adminModel.updateStudent(student_id, roll_number, name, email, department_id, current_year, section);
-        if (!updatedStudent) {
-            return res.status(404).json({ message: 'Student not found.' });
+        const { student_id } = req.params;
+        const { roll_number, name, email, department_id, current_year, section } = req.body;
+        if (!roll_number || !name || !email || !department_id || !current_year || !section) {
+            return res.status(400).json({ message: 'All required student fields are missing for update.' });
         }
+        const updatedStudent = await adminModel.updateStudent(student_id, roll_number, name, email, department_id, current_year, section);
+        logger.info(`Admin ${adminId} updated student ${student_id}`, {
+            action: 'update', entity: 'student', entity_id: student_id, admin_id: adminId
+        });
+        await logAdminAction({
+            admin_id: adminId,
+            action: 'update',
+            entity: 'student',
+            entity_id: student_id,
+            details: { roll_number, name, email, department_id, current_year, section }
+        });
         res.status(200).json({ message: 'Student updated successfully.', student: updatedStudent });
     } catch (error) {
         console.error('Error updating student:', error);
+        logger.error(`Admin ${adminId} failed to update student: ${error.message}`, {
+            action: 'update', entity: 'student', admin_id: adminId, error: error.message
+        });
+        await logAdminAction({
+            admin_id: adminId,
+            action: 'update',
+            entity: 'student',
+            entity_id: req.params.student_id,
+            details: { error: error.message }
+        });
         res.status(500).json({ message: 'Internal server error updating student.' });
     }
 };
 
 const deleteStudent = async (req, res) => {
-    const { student_id } = req.params;
+    const adminId = req.user?.admin_id || req.user?.id || 'unknown';
     try {
-        const deletedStudent = await adminModel.deleteStudent(student_id);
-        if (!deletedStudent) {
-            return res.status(404).json({ message: 'Student not found.' });
-        }
+        const { student_id } = req.params;
+        await adminModel.deleteStudent(student_id);
+        logger.info(`Admin ${adminId} deleted student ${student_id}`, {
+            action: 'delete', entity: 'student', entity_id: student_id, admin_id: adminId
+        });
+        await logAdminAction({
+            admin_id: adminId,
+            action: 'delete',
+            entity: 'student',
+            entity_id: student_id,
+            details: {}
+        });
         res.status(200).json({ message: 'Student deleted successfully.' });
     } catch (error) {
         console.error('Error deleting student:', error);
+        logger.error(`Admin ${adminId} failed to delete student: ${error.message}`, {
+            action: 'delete', entity: 'student', admin_id: adminId, error: error.message
+        });
+        await logAdminAction({
+            admin_id: adminId,
+            action: 'delete',
+            entity: 'student',
+            entity_id: req.params.student_id,
+            details: { error: error.message }
+        });
         res.status(500).json({ message: 'Internal server error deleting student.' });
     }
 };
@@ -271,12 +411,16 @@ const getSubjects = async (req, res) => {
 };
 
 const createSubject = async (req, res) => {
-    const { subject_name, subject_code, department_id, year, section, semester } = req.body;
-    if (!subject_name || !subject_code || !department_id || !year || !section || typeof semester === 'undefined') {
-        return res.status(400).json({ message: 'Subject name, subject code, department, year, section, and semester are required.' });
-    }
+    const adminId = req.user?.admin_id || req.user?.id || 'unknown';
     try {
+        const { subject_name, subject_code, department_id, year, section, semester } = req.body;
+        if (!subject_name || !subject_code || !department_id || !year || !section || typeof semester === 'undefined') {
+            return res.status(400).json({ message: 'Subject name, subject code, department, year, section, and semester are required.' });
+        }
         const newSubject = await adminModel.createSubject(subject_name, subject_code, department_id, year, section, semester);
+        logger.info(`Admin ${adminId} created subject ${newSubject.subject_id}`, {
+            action: 'create', entity: 'subject', entity_id: newSubject.subject_id, admin_id: adminId
+        });
         res.status(201).json({ message: 'Subject created successfully.', subject: newSubject });
     } catch (error) {
         console.error('Error creating subject:', error);
@@ -285,33 +429,69 @@ const createSubject = async (req, res) => {
 };
 
 const updateSubject = async (req, res) => {
-    const { subject_id } = req.params;
-    const { subject_name, department_id, year, section, semester } = req.body;
-    if (!subject_name || !department_id || !year || !section || typeof semester === 'undefined') {
-        return res.status(400).json({ message: 'Subject name, department, year, section, and semester are required for update.' });
-    }
+    const adminId = req.user?.admin_id || req.user?.id || 'unknown';
     try {
-        const updatedSubject = await adminModel.updateSubject(subject_id, subject_name, department_id, year, section, semester);
-        if (!updatedSubject) {
-            return res.status(404).json({ message: 'Subject not found.' });
+        const { subject_id } = req.params;
+        const { subject_name, subject_code, department_id, year, section, semester } = req.body;
+        if (!subject_name || !department_id || !year || !section || typeof semester === 'undefined') {
+            return res.status(400).json({ message: 'Subject name, department, year, section, and semester are required for update.' });
         }
+        const updatedSubject = await adminModel.updateSubject(subject_id, subject_name, subject_code, department_id, year, section, semester);
+        logger.info(`Admin ${adminId} updated subject ${subject_id}`, {
+            action: 'update', entity: 'subject', entity_id: subject_id, admin_id: adminId
+        });
+        await logAdminAction({
+            admin_id: adminId,
+            action: 'update',
+            entity: 'subject',
+            entity_id: subject_id,
+            details: { subject_name, subject_code, department_id, year, section, semester }
+        });
         res.status(200).json({ message: 'Subject updated successfully.', subject: updatedSubject });
     } catch (error) {
         console.error('Error updating subject:', error);
+        logger.error(`Admin ${adminId} failed to update subject: ${error.message}`, {
+            action: 'update', entity: 'subject', admin_id: adminId, error: error.message
+        });
+        await logAdminAction({
+            admin_id: adminId,
+            action: 'update',
+            entity: 'subject',
+            entity_id: req.params.subject_id,
+            details: { error: error.message }
+        });
         res.status(500).json({ message: 'Internal server error updating subject.' });
     }
 };
 
 const deleteSubject = async (req, res) => {
-    const { subject_id } = req.params;
+    const adminId = req.user?.admin_id || req.user?.id || 'unknown';
     try {
-        const deletedSubject = await adminModel.deleteSubject(subject_id);
-        if (!deletedSubject) {
-            return res.status(404).json({ message: 'Subject not found.' });
-        }
+        const { subject_id } = req.params;
+        await adminModel.deleteSubject(subject_id);
+        logger.info(`Admin ${adminId} deleted subject ${subject_id}`, {
+            action: 'delete', entity: 'subject', entity_id: subject_id, admin_id: adminId
+        });
+        await logAdminAction({
+            admin_id: adminId,
+            action: 'delete',
+            entity: 'subject',
+            entity_id: subject_id,
+            details: {}
+        });
         res.status(200).json({ message: 'Subject deleted successfully.' });
     } catch (error) {
         console.error('Error deleting subject:', error);
+        logger.error(`Admin ${adminId} failed to delete subject: ${error.message}`, {
+            action: 'delete', entity: 'subject', admin_id: adminId, error: error.message
+        });
+        await logAdminAction({
+            admin_id: adminId,
+            action: 'delete',
+            entity: 'subject',
+            entity_id: req.params.subject_id,
+            details: { error: error.message }
+        });
         res.status(500).json({ message: 'Internal server error deleting subject.' });
     }
 };
@@ -530,6 +710,231 @@ const getSubjectEnrollments = async (req, res) => {
     }
 };
 
+const bulkImportStudents = async (req, res) => {
+  const adminId = req.user?.admin_id || req.user?.id || 'unknown';
+  try {
+    const { students } = req.body;
+    if (!Array.isArray(students)) {
+      logger.warn(`Admin ${adminId} sent invalid students array to bulk import`, {
+        action: 'bulk_import', entity: 'student', admin_id: adminId
+      });
+      return res.status(400).json({ error: 'students must be an array' });
+    }
+    const result = await bulkCreateStudents(students);
+    logger.info(`Admin ${adminId} bulk imported students`, {
+      action: 'bulk_import', entity: 'student', admin_id: adminId, result
+    });
+    await logAdminAction({
+      admin_id: adminId,
+      action: 'bulk_import',
+      entity: 'student',
+      entity_id: null,
+      details: result
+    });
+    res.json(result);
+  } catch (err) {
+    logger.error(`Admin ${adminId} failed bulk import: ${err.message}`, {
+      action: 'bulk_import', entity: 'student', admin_id: adminId, error: err.message
+    });
+    await logAdminAction({
+      admin_id: adminId,
+      action: 'bulk_import',
+      entity: 'student',
+      entity_id: null,
+      details: { error: err.message }
+    });
+    res.status(500).json({ error: err.message || 'Bulk import failed' });
+  }
+};
+
+// Bulk import faculty
+const bulkImportFaculty = async (req, res) => {
+  const adminId = req.user?.admin_id || req.user?.id || 'unknown';
+  try {
+    const { faculty } = req.body;
+    if (!Array.isArray(faculty)) {
+      logger.warn(`Admin ${adminId} sent invalid faculty array to bulk import`, {
+        action: 'bulk_import', entity: 'faculty', admin_id: adminId
+      });
+      return res.status(400).json({ error: 'faculty must be an array' });
+    }
+    const result = await bulkCreateFaculty(faculty);
+    logger.info(`Admin ${adminId} bulk imported faculty`, {
+      action: 'bulk_import', entity: 'faculty', admin_id: adminId, result
+    });
+    await logAdminAction({
+      admin_id: adminId,
+      action: 'bulk_import',
+      entity: 'faculty',
+      entity_id: null,
+      details: result
+    });
+    res.json(result);
+  } catch (err) {
+    logger.error(`Admin ${adminId} failed faculty bulk import: ${err.message}`, {
+      action: 'bulk_import', entity: 'faculty', admin_id: adminId, error: err.message
+    });
+    await logAdminAction({
+      admin_id: adminId,
+      action: 'bulk_import',
+      entity: 'faculty',
+      entity_id: null,
+      details: { error: err.message }
+    });
+    res.status(500).json({ error: err.message || 'Bulk import failed' });
+  }
+};
+
+// Bulk import subjects
+const bulkImportSubjects = async (req, res) => {
+  const adminId = req.user?.admin_id || req.user?.id || 'unknown';
+  try {
+    const { subjects } = req.body;
+    if (!Array.isArray(subjects)) {
+      logger.warn(`Admin ${adminId} sent invalid subjects array to bulk import`, {
+        action: 'bulk_import', entity: 'subject', admin_id: adminId
+      });
+      return res.status(400).json({ error: 'subjects must be an array' });
+    }
+    const result = await bulkCreateSubjects(subjects);
+    logger.info(`Admin ${adminId} bulk imported subjects`, {
+      action: 'bulk_import', entity: 'subject', admin_id: adminId, result
+    });
+    await logAdminAction({
+      admin_id: adminId,
+      action: 'bulk_import',
+      entity: 'subject',
+      entity_id: null,
+      details: result
+    });
+    res.json(result);
+  } catch (err) {
+    logger.error(`Admin ${adminId} failed subjects bulk import: ${err.message}`, {
+      action: 'bulk_import', entity: 'subject', admin_id: adminId, error: err.message
+    });
+    await logAdminAction({
+      admin_id: adminId,
+      action: 'bulk_import',
+      entity: 'subject',
+      entity_id: null,
+      details: { error: err.message }
+    });
+    res.status(500).json({ error: err.message || 'Bulk import failed' });
+  }
+};
+
+// Bulk import departments
+const bulkImportDepartments = async (req, res) => {
+  const adminId = req.user?.admin_id || req.user?.id || 'unknown';
+  try {
+    const { departments } = req.body;
+    if (!Array.isArray(departments)) {
+      logger.warn(`Admin ${adminId} sent invalid departments array to bulk import`, {
+        action: 'bulk_import', entity: 'department', admin_id: adminId
+      });
+      return res.status(400).json({ error: 'departments must be an array' });
+    }
+    const result = await bulkCreateDepartments(departments);
+    logger.info(`Admin ${adminId} bulk imported departments`, {
+      action: 'bulk_import', entity: 'department', admin_id: adminId, result
+    });
+    await logAdminAction({
+      admin_id: adminId,
+      action: 'bulk_import',
+      entity: 'department',
+      entity_id: null,
+      details: result
+    });
+    res.json(result);
+  } catch (err) {
+    logger.error(`Admin ${adminId} failed departments bulk import: ${err.message}`, {
+      action: 'bulk_import', entity: 'department', admin_id: adminId, error: err.message
+    });
+    await logAdminAction({
+      admin_id: adminId,
+      action: 'bulk_import',
+      entity: 'department',
+      entity_id: null,
+      details: { error: err.message }
+    });
+    res.status(500).json({ error: err.message || 'Bulk import failed' });
+  }
+};
+
+// Bulk import degrees
+const bulkImportDegrees = async (req, res) => {
+  const adminId = req.user?.admin_id || req.user?.id || 'unknown';
+  try {
+    const { degrees } = req.body;
+    if (!Array.isArray(degrees)) {
+      logger.warn(`Admin ${adminId} sent invalid degrees array to bulk import`, {
+        action: 'bulk_import', entity: 'degree', admin_id: adminId
+      });
+      return res.status(400).json({ error: 'degrees must be an array' });
+    }
+    const result = await bulkCreateDegrees(degrees);
+    logger.info(`Admin ${adminId} bulk imported degrees`, {
+      action: 'bulk_import', entity: 'degree', admin_id: adminId, result
+    });
+    await logAdminAction({
+      admin_id: adminId,
+      action: 'bulk_import',
+      entity: 'degree',
+      entity_id: null,
+      details: result
+    });
+    res.json(result);
+  } catch (err) {
+    logger.error(`Admin ${adminId} failed degrees bulk import: ${err.message}`, {
+      action: 'bulk_import', entity: 'degree', admin_id: adminId, error: err.message
+    });
+    await logAdminAction({
+      admin_id: adminId,
+      action: 'bulk_import',
+      entity: 'degree',
+      entity_id: null,
+      details: { error: err.message }
+    });
+    res.status(500).json({ error: err.message || 'Bulk import failed' });
+  }
+};
+
+// Fetch audit logs with optional filters
+const getAuditLogs = async (req, res) => {
+  const { action, entity, admin_id, start_date, end_date, limit = 100 } = req.query;
+  let query = 'SELECT * FROM admin_action_logs WHERE 1=1';
+  const params = [];
+  let idx = 1;
+  if (action) {
+    query += ` AND action = $${idx++}`;
+    params.push(action);
+  }
+  if (entity) {
+    query += ` AND entity = $${idx++}`;
+    params.push(entity);
+  }
+  if (admin_id) {
+    query += ` AND admin_id = $${idx++}`;
+    params.push(admin_id);
+  }
+  if (start_date) {
+    query += ` AND created_at >= $${idx++}`;
+    params.push(start_date);
+  }
+  if (end_date) {
+    query += ` AND created_at <= $${idx++}`;
+    params.push(end_date);
+  }
+  query += ` ORDER BY created_at DESC LIMIT $${idx}`;
+  params.push(Number(limit));
+  try {
+    const result = await pool.query(query, params);
+    res.json({ logs: result.rows });
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Error fetching audit logs' });
+  }
+};
+
 module.exports = {
     registerAdmin,
     loginAdmin,
@@ -562,5 +967,11 @@ module.exports = {
     enrollStudentInSubject,
     removeStudentFromSubject,
     getStudentEnrollments,
-    getSubjectEnrollments
+    getSubjectEnrollments,
+    bulkImportStudents,
+    bulkImportFaculty,
+    bulkImportSubjects,
+    bulkImportDepartments,
+    bulkImportDegrees,
+    getAuditLogs
 };

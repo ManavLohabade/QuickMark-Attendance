@@ -87,30 +87,34 @@ const updateAdminPassword = async (adminId, newHashedPassword) => {
     }
 };
 
-// Get all departments with pagination
-const getAllDepartments = async (page = 1, limit = 10) => {
+// Get all departments, optionally filter by degree_id
+const getAllDepartments = async (page = 1, limit = 10, degree_id = null) => {
     const offset = (page - 1) * limit;
-    const query = `
+    let query = `
         SELECT 
             department_id,
             name,
+            degree_id,
             created_at,
             updated_at
         FROM departments
-        ORDER BY name
-        LIMIT $1 OFFSET $2;
     `;
-    const countQuery = 'SELECT COUNT(*) FROM departments;';
-    
+    let countQuery = 'SELECT COUNT(*) FROM departments';
+    const params = [];
+    if (degree_id) {
+        query += ' WHERE degree_id = $1';
+        countQuery += ' WHERE degree_id = $1';
+        params.push(degree_id);
+    }
+    query += ' ORDER BY name LIMIT $2 OFFSET $3';
+    params.push(limit, offset);
     try {
         const [result, countResult] = await Promise.all([
-            pool.query(query, [limit, offset]),
-            pool.query(countQuery)
+            pool.query(query, params),
+            pool.query(countQuery, degree_id ? [degree_id] : [])
         ]);
-        
         const totalItems = parseInt(countResult.rows[0].count);
         const totalPages = Math.ceil(totalItems / limit);
-        
         return {
             departments: result.rows,
             totalItems,
@@ -123,15 +127,15 @@ const getAllDepartments = async (page = 1, limit = 10) => {
     }
 };
 
-// Create a new department
-const createDepartment = async (name) => {
+// Create a new department (one-to-many: degree_id)
+const createDepartment = async (name, degree_id) => {
     const query = `
-        INSERT INTO departments (name)
-        VALUES ($1)
-        RETURNING department_id, name;
+        INSERT INTO departments (name, degree_id)
+        VALUES ($1, $2)
+        RETURNING department_id, name, degree_id;
     `;
     try {
-        const result = await pool.query(query, [name]);
+        const result = await pool.query(query, [name, degree_id]);
         return result.rows[0];
     } catch (error) {
         console.error('Error creating department:', error);
@@ -139,20 +143,38 @@ const createDepartment = async (name) => {
     }
 };
 
-// Update department
-const updateDepartment = async (departmentId, name) => {
+// Update department (one-to-many: degree_id)
+const updateDepartment = async (departmentId, name, degree_id) => {
     const query = `
         UPDATE departments
-        SET name = $2, updated_at = CURRENT_TIMESTAMP
+        SET name = $2, degree_id = $3, updated_at = CURRENT_TIMESTAMP
         WHERE department_id = $1
-        RETURNING department_id, name;
+        RETURNING department_id, name, degree_id;
     `;
     try {
-        const result = await pool.query(query, [departmentId, name]);
+        const result = await pool.query(query, [departmentId, name, degree_id]);
         return result.rows[0] || null;
     } catch (error) {
         console.error('Error updating department:', error);
         throw new Error('Database update failed.');
+    }
+};
+
+// Fetch departments by degree_id
+const getDepartmentsByDegree = async (degree_id) => {
+    const query = `
+        SELECT d.department_id, d.name, d.created_at, d.updated_at
+        FROM departments d
+        JOIN degree_departments dd ON d.department_id = dd.department_id
+        WHERE dd.degree_id = $1
+        ORDER BY d.name;
+    `;
+    try {
+        const result = await pool.query(query, [degree_id]);
+        return result.rows;
+    } catch (error) {
+        console.error('Error fetching departments by degree:', error);
+        throw new Error('Database query failed.');
     }
 };
 
@@ -290,9 +312,9 @@ const deleteFaculty = async (facultyId) => {
 };
 
 // Get all students with pagination
-const getAllStudents = async (page = 1, limit = 10) => {
+const getAllStudents = async (page = 1, limit = 10, departmentId = null, year = null, section = null) => {
     const offset = (page - 1) * limit;
-    const query = `
+    let query = `
         SELECT 
             s.student_id,
             s.roll_number,
@@ -300,26 +322,41 @@ const getAllStudents = async (page = 1, limit = 10) => {
             s.email,
             s.current_year,
             s.section,
+            s.face_image_url,
+            s.face_registered,
             s.created_at,
             s.updated_at,
             d.name AS department_name,
             d.department_id
         FROM students s
         JOIN departments d ON s.department_id = d.department_id
-        ORDER BY s.roll_number
-        LIMIT $1 OFFSET $2;
+        WHERE 1=1
     `;
+    const queryParams = [];
+    let paramIndex = 1;
+    if (departmentId) {
+        query += ` AND s.department_id = $${paramIndex++}`;
+        queryParams.push(departmentId);
+    }
+    if (year) {
+        query += ` AND s.current_year = $${paramIndex++}`;
+        queryParams.push(year);
+    }
+    if (section) {
+        query += ` AND s.section = $${paramIndex++}`;
+        queryParams.push(section);
+    }
+    query += ` ORDER BY s.roll_number LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
+    queryParams.push(limit, offset);
+
     const countQuery = 'SELECT COUNT(*) FROM students;';
-    
     try {
         const [result, countResult] = await Promise.all([
-            pool.query(query, [limit, offset]),
+            pool.query(query, queryParams),
             pool.query(countQuery)
         ]);
-        
         const totalItems = parseInt(countResult.rows[0].count);
         const totalPages = Math.ceil(totalItems / limit);
-        
         return {
             students: result.rows,
             totalItems,
@@ -998,6 +1035,127 @@ const getSubjectEnrollments = async (subjectId) => {
     }
 };
 
+// Bulk create faculty
+const bulkCreateFaculty = async (facultyList) => {
+    let created = 0, skipped = 0;
+    const errors = [];
+    for (let i = 0; i < facultyList.length; i++) {
+        const f = facultyList[i];
+        if (!f.name || !f.email || !f.department_id) {
+            errors.push({ row: i + 1, error: 'Missing required fields' });
+            continue;
+        }
+        // Check for duplicate by email
+        const existsQuery = 'SELECT 1 FROM faculties WHERE email = $1';
+        const existsResult = await pool.query(existsQuery, [f.email]);
+        if (existsResult.rows.length > 0) {
+            skipped++;
+            continue;
+        }
+        try {
+            const password = f.password || 'faculty123';
+            await module.exports.createFacultyByAdmin(f.name, f.email, password, f.department_id, f.subject_ids || []);
+            created++;
+        } catch (err) {
+            errors.push({ row: i + 1, error: err.message });
+        }
+    }
+    return { created, skipped, errors };
+};
+
+// Bulk create subjects
+const bulkCreateSubjects = async (subjects) => {
+    let created = 0, skipped = 0;
+    const errors = [];
+    for (let i = 0; i < subjects.length; i++) {
+        const s = subjects[i];
+        if (!s.subject_name || !s.subject_code || !s.department_id || !s.year || !s.section || !s.semester) {
+            errors.push({ row: i + 1, error: 'Missing required fields' });
+            continue;
+        }
+        // Check for duplicate by subject_code and department/year/section/semester
+        const existsQuery = 'SELECT 1 FROM subjects WHERE subject_code = $1 AND department_id = $2 AND year = $3 AND section = $4 AND semester = $5';
+        const existsResult = await pool.query(existsQuery, [s.subject_code, s.department_id, s.year, s.section, s.semester]);
+        if (existsResult.rows.length > 0) {
+            skipped++;
+            continue;
+        }
+        try {
+            await module.exports.createSubject(s.subject_name, s.subject_code, s.department_id, s.year, s.section, s.semester);
+            created++;
+        } catch (err) {
+            errors.push({ row: i + 1, error: err.message });
+        }
+    }
+    return { created, skipped, errors };
+};
+
+// Bulk create departments
+const bulkCreateDepartments = async (departments) => {
+    let created = 0, skipped = 0;
+    const errors = [];
+    for (let i = 0; i < departments.length; i++) {
+        const d = departments[i];
+        if (!d.name || !d.degree_id) {
+            errors.push({ row: i + 1, error: 'Missing required fields' });
+            continue;
+        }
+        // Check for duplicate by name and degree_id
+        const existsQuery = 'SELECT 1 FROM departments WHERE name = $1 AND degree_id = $2';
+        const existsResult = await pool.query(existsQuery, [d.name, d.degree_id]);
+        if (existsResult.rows.length > 0) {
+            skipped++;
+            continue;
+        }
+        try {
+            await module.exports.createDepartment(d.name, d.degree_id);
+            created++;
+        } catch (err) {
+            errors.push({ row: i + 1, error: err.message });
+        }
+    }
+    return { created, skipped, errors };
+};
+
+// Bulk create degrees
+const bulkCreateDegrees = async (degrees) => {
+    let created = 0, skipped = 0;
+    const errors = [];
+    for (let i = 0; i < degrees.length; i++) {
+        const deg = degrees[i];
+        if (!deg.name) {
+            errors.push({ row: i + 1, error: 'Missing required fields' });
+            continue;
+        }
+        // Check for duplicate by name
+        const existsQuery = 'SELECT 1 FROM degrees WHERE name = $1';
+        const existsResult = await pool.query(existsQuery, [deg.name]);
+        if (existsResult.rows.length > 0) {
+            skipped++;
+            continue;
+        }
+        try {
+            await module.exports.createDegree(deg.name);
+            created++;
+        } catch (err) {
+            errors.push({ row: i + 1, error: err.message });
+        }
+    }
+    return { created, skipped, errors };
+};
+
+// Log admin action to audit table
+const logAdminAction = async ({ admin_id, action, entity, entity_id, details }) => {
+    const query = `
+        INSERT INTO admin_action_logs (admin_id, action, entity, entity_id, details)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING *;
+    `;
+    const values = [admin_id, action, entity, entity_id, details ? JSON.stringify(details) : null];
+    const result = await pool.query(query, values);
+    return result.rows[0];
+};
+
 module.exports = {
     findAdminByEmail,
     findAdminById,
@@ -1036,4 +1194,10 @@ module.exports = {
     removeStudentFromSubject,
     getStudentEnrollments,
     getSubjectEnrollments,
+    getDepartmentsByDegree,
+    bulkCreateFaculty,
+    bulkCreateSubjects,
+    bulkCreateDepartments,
+    bulkCreateDegrees,
+    logAdminAction,
 };

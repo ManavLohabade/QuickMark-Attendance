@@ -13,7 +13,9 @@ const {
     getDashboardStats, getAttendanceStats,
     getDefaultersList,
     assignSubjectToFaculty, removeSubjectFromFaculty, getFacultyAssignments,
-    enrollStudentInSubject, removeStudentFromSubject, getStudentEnrollments, getSubjectEnrollments
+    enrollStudentInSubject, removeStudentFromSubject, getStudentEnrollments, getSubjectEnrollments,
+    bulkImportStudents, bulkImportFaculty, bulkImportSubjects, bulkImportDepartments, bulkImportDegrees,
+    getAuditLogs
 } = require('../controllers/adminController');
 const adminAuthMiddleware = require('../middleware/adminAuthMiddleware');
 
@@ -33,6 +35,9 @@ router.post('/departments', adminAuthMiddleware, createDepartment);
 router.put('/departments/:department_id', adminAuthMiddleware, updateDepartment);
 router.delete('/departments/:department_id', adminAuthMiddleware, deleteDepartment);
 
+// Bulk import departments
+router.post('/departments/bulk', adminAuthMiddleware, bulkImportDepartments);
+
 // Faculty Management (Admin-only)
 router.get('/faculty', adminAuthMiddleware, getFaculties);
 router.post('/faculty', adminAuthMiddleware, createFaculty);
@@ -41,6 +46,9 @@ router.post('/faculty', adminAuthMiddleware, createFaculty);
 router.post('/faculty/assign-subject', adminAuthMiddleware, assignSubjectToFaculty);
 router.delete('/faculty/remove-subject', adminAuthMiddleware, removeSubjectFromFaculty);
 router.get('/faculty/:faculty_id/assignments', adminAuthMiddleware, getFacultyAssignments);
+
+// Bulk import faculty
+router.post('/faculty/bulk', adminAuthMiddleware, bulkImportFaculty);
 
 // Faculty parameterized routes (must come after specific routes)
 router.put('/faculty/:faculty_id', adminAuthMiddleware, updateFaculty);
@@ -52,11 +60,17 @@ router.post('/students', adminAuthMiddleware, createStudent);
 router.put('/students/:student_id', adminAuthMiddleware, updateStudent);
 router.delete('/students/:student_id', adminAuthMiddleware, deleteStudent);
 
+// Bulk import students
+router.post('/students/bulk', adminAuthMiddleware, bulkImportStudents);
+
 // Subject Management (Admin-only)
 router.get('/subjects', adminAuthMiddleware, getSubjects);
 router.post('/subjects', adminAuthMiddleware, createSubject);
 router.put('/subjects/:subject_id', adminAuthMiddleware, updateSubject);
 router.delete('/subjects/:subject_id', adminAuthMiddleware, deleteSubject);
+
+// Bulk import subjects
+router.post('/subjects/bulk', adminAuthMiddleware, bulkImportSubjects);
 
 // Settings Management (Admin-only)
 router.get('/settings/attendance-threshold', adminAuthMiddleware, getAttendanceThreshold);
@@ -72,5 +86,11 @@ router.post('/students/enroll-subject', adminAuthMiddleware, enrollStudentInSubj
 router.delete('/students/remove-subject', adminAuthMiddleware, removeStudentFromSubject);
 router.get('/students/:student_id/enrollments', adminAuthMiddleware, getStudentEnrollments);
 router.get('/subjects/:subject_id/enrollments', adminAuthMiddleware, getSubjectEnrollments);
+
+// Bulk import degrees
+router.post('/degrees/bulk', adminAuthMiddleware, bulkImportDegrees);
+
+// Fetch admin audit logs
+router.get('/audit-logs', adminAuthMiddleware, getAuditLogs);
 
 module.exports = router;

@@ -3,7 +3,7 @@ const { hashPassword } = require('../utils/passwordHasher');
 
 // Find a student by email (for login)
 const findStudentByEmail = async (email) => {
-    const query = 'SELECT * FROM students WHERE email = $1;';
+    const query = 'SELECT *, face_image_url, face_registered FROM students WHERE email = $1;';
     try {
         const result = await pool.query(query, [email]);
         return result.rows[0];
@@ -15,7 +15,7 @@ const findStudentByEmail = async (email) => {
 
 // Find a student by roll number (for login)
 const findStudentByRollNumber = async (rollNumber) => {
-    const query = 'SELECT * FROM students WHERE roll_number = $1;';
+    const query = 'SELECT *, face_image_url, face_registered FROM students WHERE roll_number = $1;';
     try {
         const result = await pool.query(query, [rollNumber]);
         return result.rows[0];
@@ -36,6 +36,8 @@ const findStudentById = async (studentId) => {
             s.department_id,
             s.current_year,
             s.section,
+            s.face_image_url,
+            s.face_registered,
             d.name AS department_name
         FROM students s
         JOIN departments d ON s.department_id = d.department_id
@@ -109,6 +111,40 @@ const updateStudentPassword = async (studentId, newHashedPassword) => {
     } catch (error) {
         console.error('Error updating student password:', error);
         throw new Error('Database password update failed.');
+    }
+};
+
+// Register or update a student's face data
+const registerStudentFace = async (studentId, faceImageUrl) => {
+    const query = `
+        UPDATE students
+        SET face_image_url = $1, face_registered = TRUE, updated_at = CURRENT_TIMESTAMP
+        WHERE student_id = $2
+        RETURNING student_id, face_image_url, face_registered;
+    `;
+    try {
+        const result = await pool.query(query, [faceImageUrl, studentId]);
+        return result.rows[0];
+    } catch (error) {
+        console.error('Error registering student face:', error);
+        throw new Error('Database update failed.');
+    }
+};
+
+// Update student photo_url
+const updateStudentPhotoUrl = async (studentId, photoUrl) => {
+    const query = `
+        UPDATE students
+        SET photo_url = $2, updated_at = CURRENT_TIMESTAMP
+        WHERE student_id = $1
+        RETURNING student_id, roll_number, name, email, department_id, current_year, section, photo_url;
+    `;
+    try {
+        const result = await pool.query(query, [studentId, photoUrl]);
+        return result.rows[0] || null;
+    } catch (error) {
+        console.error('Error updating student photo_url:', error);
+        throw new Error('Database update failed.');
     }
 };
 
@@ -286,6 +322,61 @@ const getStudentsBySubjectId = async (subjectId) => {
     }
 };
 
+const bulkCreateStudents = async (students) => {
+    let created = 0, skipped = 0;
+    const errors = [];
+    for (let i = 0; i < students.length; i++) {
+        const s = students[i];
+        // Validate required fields
+        if (!s.roll_number || !s.name || !s.email || !s.department_id || !s.current_year || !s.section) {
+            errors.push({ row: i + 1, error: 'Missing required fields' });
+            continue;
+        }
+        // Check for duplicate by email or roll_number
+        const existsQuery = 'SELECT 1 FROM students WHERE email = $1 OR roll_number = $2';
+        const existsResult = await pool.query(existsQuery, [s.email, s.roll_number]);
+        if (existsResult.rows.length > 0) {
+            skipped++;
+            continue;
+        }
+        // Insert student
+        try {
+            const passwordHash = await require('../utils/passwordHasher').hashPassword('password123');
+            await pool.query(
+                'INSERT INTO students (roll_number, name, email, password_hash, department_id, current_year, section) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+                [s.roll_number, s.name, s.email, passwordHash, s.department_id, s.current_year, s.section]
+            );
+            created++;
+        } catch (err) {
+            errors.push({ row: i + 1, error: err.message });
+        }
+    }
+    return { created, skipped, errors };
+};
+
+// Add a photo upload record to student_photo_history
+const addStudentPhotoHistory = async ({ student_id, photo_url, uploaded_by, uploaded_by_role }) => {
+    const query = `
+        INSERT INTO student_photo_history (student_id, photo_url, uploaded_by, uploaded_by_role)
+        VALUES ($1, $2, $3, $4)
+        RETURNING *;
+    `;
+    const values = [student_id, photo_url, uploaded_by, uploaded_by_role];
+    const result = await pool.query(query, values);
+    return result.rows[0];
+};
+
+// Fetch all photo history for a student, most recent first
+const getStudentPhotoHistory = async (student_id) => {
+    const query = `
+        SELECT * FROM student_photo_history
+        WHERE student_id = $1
+        ORDER BY uploaded_at DESC;
+    `;
+    const result = await pool.query(query, [student_id]);
+    return result.rows;
+};
+
 module.exports = {
     findStudentByEmail,
     findStudentByRollNumber,
@@ -293,6 +384,8 @@ module.exports = {
     createStudent,
     updateStudentProfile,
     updateStudentPassword,
+    registerStudentFace,
+    updateStudentPhotoUrl,
     getStudentSubjects,
     enrollStudentInSubject,
     removeStudentFromSubject,
@@ -300,4 +393,7 @@ module.exports = {
     getStudentAttendanceSummary,
     isStudentEnrolledInSubject,
     getStudentsBySubjectId,
+    bulkCreateStudents,
+    addStudentPhotoHistory,
+    getStudentPhotoHistory,
 };

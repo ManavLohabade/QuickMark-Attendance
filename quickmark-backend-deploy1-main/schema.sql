@@ -63,6 +63,7 @@ COMMENT ON COLUMN public.attendance_sessions.attendance_weight IS 'Weight assign
 CREATE TABLE public.departments (
     department_id uuid DEFAULT gen_random_uuid() NOT NULL,
     name character varying(255) NOT NULL,
+    degree_id uuid NOT NULL REFERENCES public.degrees(degree_id),
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
 );
@@ -99,8 +100,11 @@ CREATE TABLE public.students (
     department_id uuid NOT NULL,
     current_year integer,
     section character varying(10),
+    face_image_url text, -- URL or path to the registered face image/thumbnail
+    face_registered boolean DEFAULT FALSE, -- Indicates if the student has registered their face
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    photo_url text
 );
 
 CREATE TABLE public.subjects (
@@ -133,16 +137,6 @@ CREATE TABLE public.degrees (
     updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT degrees_pkey PRIMARY KEY (degree_id),
     CONSTRAINT degrees_name_key UNIQUE (name)
-);
-
--- DEGREE_DEPARTMENTS JOIN TABLE (Many-to-Many)
-CREATE TABLE public.degree_departments (
-    degree_id uuid NOT NULL,
-    department_id uuid NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (degree_id, department_id),
-    CONSTRAINT fk_degree FOREIGN KEY (degree_id) REFERENCES public.degrees(degree_id) ON DELETE CASCADE,
-    CONSTRAINT fk_department FOREIGN KEY (department_id) REFERENCES public.departments(department_id) ON DELETE CASCADE
 );
 
 -- CONSTRAINTS
@@ -191,5 +185,26 @@ ALTER TABLE ONLY public.faculty_subjects ADD CONSTRAINT faculty_subjects_subject
 ALTER TABLE ONLY public.faculties ADD CONSTRAINT fk_department FOREIGN KEY (department_id) REFERENCES public.departments(department_id) ON DELETE SET NULL;
 ALTER TABLE ONLY public.students ADD CONSTRAINT fk_student_department FOREIGN KEY (department_id) REFERENCES public.departments(department_id) ON DELETE RESTRICT;
 ALTER TABLE ONLY public.subjects ADD CONSTRAINT fk_subject_department FOREIGN KEY (department_id) REFERENCES public.departments(department_id) ON DELETE RESTRICT;
+
+-- Table to track student photo upload history
+CREATE TABLE IF NOT EXISTS student_photo_history (
+    history_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID REFERENCES students(student_id) ON DELETE CASCADE,
+    photo_url TEXT NOT NULL,
+    uploaded_by UUID, -- Can be admin_id or student_id (nullable, for now)
+    uploaded_by_role TEXT, -- 'admin' or 'student'
+    uploaded_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table for admin audit logs
+CREATE TABLE IF NOT EXISTS admin_action_logs (
+    log_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    admin_id UUID REFERENCES admins(admin_id) ON DELETE SET NULL,
+    action TEXT NOT NULL,
+    entity TEXT NOT NULL,
+    entity_id TEXT,
+    details JSONB,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
 
 -- PostgreSQL database dump complete

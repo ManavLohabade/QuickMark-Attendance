@@ -41,10 +41,23 @@ const requireAdminOrFacultyOrStudent = (req, res, next) => {
     }
 };
 
+const requireAdminOrSelfStudent = (req, res, next) => {
+    const user = req.user;
+    const studentIdParam = req.params.id;
+    if (user && user.isAdmin) {
+        return next();
+    }
+    if (user && user.isStudent && user.id && user.id === studentIdParam) {
+        return next();
+    }
+    return res.status(403).json({ message: 'Forbidden: Only admin or the student themselves can perform this action.' });
+};
+
 module.exports = {
     requireAdmin,
     requireFaculty,
     requireStudent,
     requireAdminOrFaculty,
-    requireAdminOrFacultyOrStudent
+    requireAdminOrFacultyOrStudent,
+    requireAdminOrSelfStudent
 };
