@@ -100,18 +100,23 @@ const getAllDepartments = async (page = 1, limit = 10, degree_id = null) => {
         FROM departments
     `;
     let countQuery = 'SELECT COUNT(*) FROM departments';
-    const params = [];
+    let params = [];
+    let countParams = [];
     if (degree_id) {
         query += ' WHERE degree_id = $1';
         countQuery += ' WHERE degree_id = $1';
         params.push(degree_id);
+        countParams.push(degree_id);
+        query += ' ORDER BY name LIMIT $2 OFFSET $3';
+        params.push(Number(limit), offset);
+    } else {
+        query += ' ORDER BY name LIMIT $1 OFFSET $2';
+        params.push(Number(limit), offset);
     }
-    query += ' ORDER BY name LIMIT $2 OFFSET $3';
-    params.push(Number(limit), offset);
     try {
         const [result, countResult] = await Promise.all([
             pool.query(query, params),
-            pool.query(countQuery, degree_id ? [degree_id] : [])
+            pool.query(countQuery, countParams)
         ]);
         const totalItems = parseInt(countResult.rows[0].count);
         const totalPages = Math.ceil(totalItems / limit);
