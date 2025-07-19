@@ -107,7 +107,7 @@ const getAllDepartments = async (page = 1, limit = 10, degree_id = null) => {
         params.push(degree_id);
     }
     query += ' ORDER BY name LIMIT $2 OFFSET $3';
-    params.push(limit, offset);
+    params.push(Number(limit), offset);
     try {
         const [result, countResult] = await Promise.all([
             pool.query(query, params),
