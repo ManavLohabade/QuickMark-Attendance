@@ -105,13 +105,15 @@ const getAllDepartments = async (page = 1, limit = 10, degree_id = null) => {
     if (degree_id) {
         query += ' WHERE degree_id = $1';
         countQuery += ' WHERE degree_id = $1';
-        params.push(degree_id);
-        countParams.push(degree_id);
+
+        params = [degree_id, limit, offset];
+        countParams = [degree_id];
         query += ' ORDER BY name LIMIT $2 OFFSET $3';
-        params.push(Number(limit), offset);
     } else {
         query += ' ORDER BY name LIMIT $1 OFFSET $2';
-        params.push(Number(limit), offset);
+        params = [limit, offset];
+        countParams = [];
+
     }
     try {
         const [result, countResult] = await Promise.all([

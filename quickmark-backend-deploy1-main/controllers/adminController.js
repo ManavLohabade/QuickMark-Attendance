@@ -86,10 +86,10 @@ const getDepartments = async (req, res) => {
 const createDepartment = async (req, res) => {
     const adminId = req.user?.admin_id || req.user?.id || 'unknown';
     try {
-        const { name, degree_id } = req.body;
-        if (!name || !degree_id) {
-            return res.status(400).json({ message: 'Department name and degree_id are required.' });
-        }
+    const { name, degree_id } = req.body;
+    if (!name || !degree_id) {
+        return res.status(400).json({ message: 'Department name and degree_id are required.' });
+    }
         const newDepartment = await adminModel.createDepartment(name, degree_id);
         logger.info(`Admin ${adminId} created department ${newDepartment.department_id}`, {
             action: 'create', entity: 'department', entity_id: newDepartment.department_id, admin_id: adminId
@@ -123,7 +123,7 @@ const updateDepartment = async (req, res) => {
   try {
     const { department_id } = req.params;
     const { name, degree_id } = req.body;
-    const updatedDepartment = await adminModel.updateDepartment(department_id, name, degree_id);
+        const updatedDepartment = await adminModel.updateDepartment(department_id, name, degree_id);
     logger.info(`Admin ${adminId} updated department ${department_id}`, {
       action: 'update', entity: 'department', entity_id: department_id, admin_id: adminId
     });
@@ -134,8 +134,8 @@ const updateDepartment = async (req, res) => {
       entity_id: department_id,
       details: { name, degree_id }
     });
-    res.status(200).json({ message: 'Department updated successfully.', department: updatedDepartment });
-  } catch (error) {
+        res.status(200).json({ message: 'Department updated successfully.', department: updatedDepartment });
+    } catch (error) {
     logger.error(`Admin ${adminId} failed to update department: ${error.message}`, {
       action: 'update', entity: 'department', admin_id: adminId, error: error.message
     });
@@ -146,8 +146,8 @@ const updateDepartment = async (req, res) => {
       entity_id: req.params.department_id,
       details: { error: error.message }
     });
-    res.status(500).json({ message: 'Internal server error updating department.' });
-  }
+        res.status(500).json({ message: 'Internal server error updating department.' });
+    }
 };
 
 const deleteDepartment = async (req, res) => {
@@ -165,8 +165,8 @@ const deleteDepartment = async (req, res) => {
       entity_id: department_id,
       details: {}
     });
-    res.status(200).json({ message: 'Department deleted successfully.' });
-  } catch (error) {
+        res.status(200).json({ message: 'Department deleted successfully.' });
+    } catch (error) {
     logger.error(`Admin ${adminId} failed to delete department: ${error.message}`, {
       action: 'delete', entity: 'department', admin_id: adminId, error: error.message
     });
@@ -177,8 +177,8 @@ const deleteDepartment = async (req, res) => {
       entity_id: req.params.department_id,
       details: { error: error.message }
     });
-    res.status(500).json({ message: 'Internal server error deleting department.' });
-  }
+        res.status(500).json({ message: 'Internal server error deleting department.' });
+    }
 };
 
 // --- FACULTY ---
@@ -197,10 +197,10 @@ const getFaculties = async (req, res) => {
 const createFaculty = async (req, res) => {
     const adminId = req.user?.admin_id || req.user?.id || 'unknown';
     try {
-        const { name, email, password, department_id, subject_ids } = req.body;
-        if (!name || !email || !password || !department_id) {
-            return res.status(400).json({ message: 'All faculty fields are required.' });
-        }
+    const { name, email, password, department_id, subject_ids } = req.body;
+    if (!name || !email || !password || !department_id) {
+        return res.status(400).json({ message: 'All faculty fields are required.' });
+    }
         const newFaculty = await adminModel.createFacultyByAdmin(name, email, password, department_id, subject_ids || []);
         logger.info(`Admin ${adminId} created faculty ${newFaculty.faculty_id}`, {
             action: 'create', entity: 'faculty', entity_id: newFaculty.faculty_id, admin_id: adminId
@@ -215,11 +215,11 @@ const createFaculty = async (req, res) => {
 const updateFaculty = async (req, res) => {
     const adminId = req.user?.admin_id || req.user?.id || 'unknown';
     try {
-        const { faculty_id } = req.params;
-        const { name, email, department_id, designation } = req.body;
-        if (!name || !email || !department_id) {
-            return res.status(400).json({ message: 'Name, email, and department are required for update.' });
-        }
+    const { faculty_id } = req.params;
+    const { name, email, department_id, designation } = req.body;
+    if (!name || !email || !department_id) {
+        return res.status(400).json({ message: 'Name, email, and department are required for update.' });
+    }
         const updatedFaculty = await adminModel.updateFaculty(faculty_id, name, email, department_id, designation || 'Faculty');
         logger.info(`Admin ${adminId} updated faculty ${faculty_id}`, {
             action: 'update', entity: 'faculty', entity_id: faculty_id, admin_id: adminId
@@ -299,20 +299,20 @@ const getStudents = async (req, res) => {
 const createStudent = async (req, res) => {
     const adminId = req.user?.admin_id || req.user?.id || 'unknown';
     try {
-        const { roll_number, name, email, department_id, current_year, section } = req.body;
-        console.log('Creating student with data:', { roll_number, name, email, department_id, current_year, section });
-        console.log('Data types:', { 
-            roll_number: typeof roll_number, 
-            name: typeof name, 
-            email: typeof email, 
-            department_id: typeof department_id, 
-            current_year: typeof current_year, 
-            section: typeof section 
-        });
-        if (!roll_number || !name || !email || !department_id || !current_year || !section) {
-            console.log('Missing required fields:', { roll_number: !!roll_number, name: !!name, email: !!email, department_id: !!department_id, current_year: !!current_year, section: !!section });
-            return res.status(400).json({ message: 'All required student fields are missing.' });
-        }
+    const { roll_number, name, email, department_id, current_year, section } = req.body;
+    console.log('Creating student with data:', { roll_number, name, email, department_id, current_year, section });
+    console.log('Data types:', { 
+        roll_number: typeof roll_number, 
+        name: typeof name, 
+        email: typeof email, 
+        department_id: typeof department_id, 
+        current_year: typeof current_year, 
+        section: typeof section 
+    });
+    if (!roll_number || !name || !email || !department_id || !current_year || !section) {
+        console.log('Missing required fields:', { roll_number: !!roll_number, name: !!name, email: !!email, department_id: !!department_id, current_year: !!current_year, section: !!section });
+        return res.status(400).json({ message: 'All required student fields are missing.' });
+    }
         const newStudent = await adminModel.createStudent(roll_number, name, email, department_id, current_year, section);
         logger.info(`Admin ${adminId} created student ${newStudent.student_id}`, {
             action: 'create', entity: 'student', entity_id: newStudent.student_id, admin_id: adminId
@@ -327,11 +327,11 @@ const createStudent = async (req, res) => {
 const updateStudent = async (req, res) => {
     const adminId = req.user?.admin_id || req.user?.id || 'unknown';
     try {
-        const { student_id } = req.params;
-        const { roll_number, name, email, department_id, current_year, section } = req.body;
-        if (!roll_number || !name || !email || !department_id || !current_year || !section) {
-            return res.status(400).json({ message: 'All required student fields are missing for update.' });
-        }
+    const { student_id } = req.params;
+    const { roll_number, name, email, department_id, current_year, section } = req.body;
+    if (!roll_number || !name || !email || !department_id || !current_year || !section) {
+        return res.status(400).json({ message: 'All required student fields are missing for update.' });
+    }
         const updatedStudent = await adminModel.updateStudent(student_id, roll_number, name, email, department_id, current_year, section);
         logger.info(`Admin ${adminId} updated student ${student_id}`, {
             action: 'update', entity: 'student', entity_id: student_id, admin_id: adminId
@@ -413,10 +413,10 @@ const getSubjects = async (req, res) => {
 const createSubject = async (req, res) => {
     const adminId = req.user?.admin_id || req.user?.id || 'unknown';
     try {
-        const { subject_name, subject_code, department_id, year, section, semester } = req.body;
-        if (!subject_name || !subject_code || !department_id || !year || !section || typeof semester === 'undefined') {
-            return res.status(400).json({ message: 'Subject name, subject code, department, year, section, and semester are required.' });
-        }
+    const { subject_name, subject_code, department_id, year, section, semester } = req.body;
+    if (!subject_name || !subject_code || !department_id || !year || !section || typeof semester === 'undefined') {
+        return res.status(400).json({ message: 'Subject name, subject code, department, year, section, and semester are required.' });
+    }
         const newSubject = await adminModel.createSubject(subject_name, subject_code, department_id, year, section, semester);
         logger.info(`Admin ${adminId} created subject ${newSubject.subject_id}`, {
             action: 'create', entity: 'subject', entity_id: newSubject.subject_id, admin_id: adminId
@@ -431,11 +431,11 @@ const createSubject = async (req, res) => {
 const updateSubject = async (req, res) => {
     const adminId = req.user?.admin_id || req.user?.id || 'unknown';
     try {
-        const { subject_id } = req.params;
+    const { subject_id } = req.params;
         const { subject_name, subject_code, department_id, year, section, semester } = req.body;
-        if (!subject_name || !department_id || !year || !section || typeof semester === 'undefined') {
-            return res.status(400).json({ message: 'Subject name, department, year, section, and semester are required for update.' });
-        }
+    if (!subject_name || !department_id || !year || !section || typeof semester === 'undefined') {
+        return res.status(400).json({ message: 'Subject name, department, year, section, and semester are required for update.' });
+    }
         const updatedSubject = await adminModel.updateSubject(subject_id, subject_name, subject_code, department_id, year, section, semester);
         logger.info(`Admin ${adminId} updated subject ${subject_id}`, {
             action: 'update', entity: 'subject', entity_id: subject_id, admin_id: adminId
@@ -932,7 +932,7 @@ const getAuditLogs = async (req, res) => {
     res.json({ logs: result.rows });
   } catch (error) {
     res.status(500).json({ error: error.message || 'Error fetching audit logs' });
-  }
+    }
 };
 
 module.exports = {
