@@ -15,10 +15,10 @@ const AddDepartmentModal = ({ onClose, onSave, degrees = [] }) => {
       setError("Department name and degree are required.");
       return;
     }
-    try {
+      try {
       await onSave({ name: name.trim(), degree_id: degreeId });
       onClose();
-    } catch (error) {
+      } catch (error) {
       setError('Error saving department: ' + (error.message || ''));
     }
   };
@@ -64,7 +64,7 @@ const EditDepartmentModal = ({ onClose, onSave, degrees = [], department }) => {
       onClose();
     } catch (error) {
       setError('Error saving department: ' + (error.message || ''));
-    }
+    } 
   };
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
@@ -184,15 +184,15 @@ export default function DepartmentPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredDepartments.map((dept) => (
+              {filteredDepartments.map((dept) => (
                     <tr key={dept.department_id} className="border-b last:border-b-0 hover:bg-gray-50">
                       <td className="py-2 px-4">
-                        <button
-                          onClick={() => onSelectDepartment(dept.name)}
+                  <button
+                    onClick={() => onSelectDepartment(dept.name)}
                           className="text-black hover:underline font-medium"
-                        >
-                          {dept.name}
-                        </button>
+                  >
+                    {dept.name}
+                  </button>
                       </td>
                       <td className="py-2 px-4 text-xs text-gray-700">{getDegreeName(dept.degree_id)}</td>
                       <td className="py-2 px-4 flex space-x-2">
@@ -209,10 +209,10 @@ export default function DepartmentPage({
                           title="Delete"
                         >
                           <Trash2 size={16} />
-                        </button>
+                  </button>
                       </td>
                     </tr>
-                  ))}
+              ))}
                 </tbody>
               </table>
             </div>

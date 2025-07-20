@@ -16,6 +16,7 @@ import Calendar from "./pages/subjects/Calendar";
 import EnrolledStudents from "./pages/subjects/EnrolledStudents";
 import DegreesManager from "./pages/admin/DegreesManager";
 import AdminActivityLog from "./pages/admin/AdminActivityLog";
+import FacultyManagement from './pages/admin/FacultyManagement';
 import axios from "axios";
 
 // --- Import API utilities ---
@@ -589,7 +590,7 @@ export default function App() {
               throw error;
             }
           }}
-          onDelete={handleDeleteDepartment}
+          onDelete={handleDeleteDepartment} 
           onSelectDepartment={handleNavigateWithFilter}
           pagination={pagination.departments}
           onPageChange={(page) => handlePageChange('departments', page)}
@@ -631,6 +632,9 @@ export default function App() {
       case "AdminActivityLog":
         return <AdminActivityLog />;
 
+      case "FacultyManagement":
+        return <FacultyManagement />;
+
       default:
         return <Dashboard 
           allStudents={students} 
@@ -658,6 +662,7 @@ export default function App() {
       case "Calendar": return `Attendance for ${selectedStudent?.name}`;
       case "Degree": return "Degree";
       case "AdminActivityLog": return "Admin Activity Log";
+      case "FacultyManagement": return "Faculty Management";
       default: return "Dashboard";
     }
   };

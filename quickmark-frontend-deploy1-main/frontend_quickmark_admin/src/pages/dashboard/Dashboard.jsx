@@ -182,6 +182,13 @@ export default function Dashboard({ allStudents, allSubjects, allFaculty, allDep
           IconComponent={Activity}
         />
         <InfoCard
+          title="Faculty Management"
+          value=""
+          navigate={navigateTo}
+          linkTo="FacultyManagement"
+          IconComponent={Users}
+        />
+        <InfoCard
           title="Face Register"
           value=""
           navigate={navigateTo}
@@ -226,13 +233,13 @@ export default function Dashboard({ allStudents, allSubjects, allFaculty, allDep
                     onChange={handleFilterChange} 
                     className="w-full p-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
-                    <option value="">All Years</option>
+                <option value="">All Years</option>
                     {uniqueYears.map((y, index) => (
                       <option key={`year-${index}`} value={y}>
                         {y}
                       </option>
                     ))}
-                  </select>
+              </select>
                 </div>
                 
                 <div>
@@ -243,13 +250,13 @@ export default function Dashboard({ allStudents, allSubjects, allFaculty, allDep
                     onChange={handleFilterChange} 
                     className="w-full p-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
-                    <option value="">All Departments</option>
+                <option value="">All Departments</option>
                     {uniqueDepartments.map((d, index) => (
                       <option key={`dept-${index}`} value={d}>
                         {d}
                       </option>
                     ))}
-                  </select>
+              </select>
                 </div>
                 
                 <div>
@@ -260,13 +267,13 @@ export default function Dashboard({ allStudents, allSubjects, allFaculty, allDep
                     onChange={handleFilterChange} 
                     className="w-full p-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
-                    <option value="">All Faculty</option>
+                <option value="">All Faculty</option>
                     {uniqueFaculty.map((f, index) => (
                       <option key={`faculty-${index}`} value={f}>
                         {f}
                       </option>
                     ))}
-                  </select>
+              </select>
                 </div>
               </div>
             </div>

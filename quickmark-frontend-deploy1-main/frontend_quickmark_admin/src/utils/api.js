@@ -77,6 +77,7 @@ export const dashboardAPI = {
   getStats: async () => {
     const response = await apiRequest('/admin/dashboard/stats');
     return {
+      degrees: response.degrees || 0,
       departments: response.departments || 0,
       faculties: response.faculties || 0,
       students: response.students || 0,

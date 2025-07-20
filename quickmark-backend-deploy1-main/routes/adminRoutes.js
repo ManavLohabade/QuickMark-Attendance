@@ -15,7 +15,7 @@ const {
     assignSubjectToFaculty, removeSubjectFromFaculty, getFacultyAssignments,
     enrollStudentInSubject, removeStudentFromSubject, getStudentEnrollments, getSubjectEnrollments,
     bulkImportStudents, bulkImportFaculty, bulkImportSubjects, bulkImportDepartments, bulkImportDegrees,
-    getAuditLogs
+    getAuditLogs, getFacultyActivityLogs
 } = require('../controllers/adminController');
 const adminAuthMiddleware = require('../middleware/adminAuthMiddleware');
 
@@ -46,6 +46,7 @@ router.post('/faculty', adminAuthMiddleware, createFaculty);
 router.post('/faculty/assign-subject', adminAuthMiddleware, assignSubjectToFaculty);
 router.delete('/faculty/remove-subject', adminAuthMiddleware, removeSubjectFromFaculty);
 router.get('/faculty/:faculty_id/assignments', adminAuthMiddleware, getFacultyAssignments);
+router.get('/faculty/:faculty_id/activity-logs', adminAuthMiddleware, getFacultyActivityLogs);
 
 // Bulk import faculty
 router.post('/faculty/bulk', adminAuthMiddleware, bulkImportFaculty);

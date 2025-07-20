@@ -565,18 +565,17 @@ const printAttendanceSheet = async (req, res) => {
 // --- DASHBOARD ---
 const getDashboardStats = async (req, res) => {
     try {
-        const subjectsCount = await adminModel.countEntities('subjects');
-        const studentsCount = await adminModel.countEntities('students');
-        const facultyCount = await adminModel.countEntities('faculties');
-        const departmentsCount = await adminModel.countEntities('departments');
+        // Use the updated model function to get all stats including degrees
+        const stats = await adminModel.getDashboardStats();
         const defaultersCount = await adminModel.countDefaulters();
 
         res.status(200).json({
-            subjects: subjectsCount,
-            students: studentsCount,
-            faculties: facultyCount,
-            departments: departmentsCount,
-            defaulters: defaultersCount,
+            degrees: stats.total_degrees || 0,
+            departments: stats.total_departments || 0,
+            faculties: stats.total_faculties || 0,
+            students: stats.total_students || 0,
+            subjects: stats.total_subjects || 0,
+            defaulters: defaultersCount || 0,
         });
     } catch (error) {
         console.error('Error getting dashboard stats:', error);
@@ -935,6 +934,36 @@ const getAuditLogs = async (req, res) => {
     }
 };
 
+// --- FACULTY ACTIVITY LOGS (ADMIN) ---
+const getFacultyActivityLogs = async (req, res) => {
+    const { faculty_id, action, from, to } = req.query;
+    if (!faculty_id) {
+        return res.status(400).json({ message: 'faculty_id is required' });
+    }
+    let query = 'SELECT * FROM faculty_activity_logs WHERE faculty_id = $1';
+    const params = [faculty_id];
+    let paramIndex = 2;
+    if (action) {
+        query += ` AND action = $${paramIndex++}`;
+        params.push(action);
+    }
+    if (from) {
+        query += ` AND created_at >= $${paramIndex++}`;
+        params.push(from);
+    }
+    if (to) {
+        query += ` AND created_at <= $${paramIndex++}`;
+        params.push(to);
+    }
+    query += ' ORDER BY created_at DESC LIMIT 100';
+    try {
+        const result = await pool.query(query, params);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};
+
 module.exports = {
     registerAdmin,
     loginAdmin,
@@ -973,5 +1002,6 @@ module.exports = {
     bulkImportSubjects,
     bulkImportDepartments,
     bulkImportDegrees,
-    getAuditLogs
+    getAuditLogs,
+    getFacultyActivityLogs
 };

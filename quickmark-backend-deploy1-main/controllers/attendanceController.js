@@ -4,6 +4,7 @@ const studentModel = require('../models/studentModel');
 const redisClient = require('../config/redis');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
+const { logFacultyActivity } = require('../utils/activityLogger');
 
 // Starts a new attendance session for a subject.
 const startAttendanceSession = async (req, res) => {
@@ -47,6 +48,7 @@ const startAttendanceSession = async (req, res) => {
                 subject_code: subjectCode
             }
         });
+        await logFacultyActivity(facultyId, 'start_session', { subject_id });
     } catch (error) {
         console.error('Error starting attendance session:', error.message);
         res.status(500).json({ message: 'Internal server error starting session.' });
@@ -113,6 +115,7 @@ const endAttendanceSession = async (req, res) => {
             message: 'Attendance session ended successfully!',
             session: closedSession
         });
+        await logFacultyActivity(facultyId, 'end_session', { session_id });
     } catch (error) {
         console.error('Error in endAttendanceSession:', error.message);
         res.status(500).json({ message: 'Internal server error ending session.' });
@@ -358,6 +361,7 @@ const overrideAttendance = async (req, res) => {
 
         const updated = await attendanceModel.overrideAttendanceStatus(session.session_id, studentId, new_status);
         res.status(200).json({ message: 'Attendance overridden.', updated });
+        await logFacultyActivity(req.user.id, 'override_attendance', { student_id: studentId, session_id: session.session_id, new_status });
 
     } catch (error) {
         console.error('Error in overrideAttendance:', error.message);
@@ -397,6 +401,7 @@ const submitAttendance = async (req, res) => {
             message: 'Attendance submitted successfully!',
             session: updatedSession
         });
+        await logFacultyActivity(facultyId, 'submit_attendance', { session_id, weight: attendance_weight });
     } catch (error) {
         console.error('Error submitting attendance:', error.message);
         res.status(500).json({ message: 'Internal server error submitting attendance.' });
@@ -499,6 +504,7 @@ const pauseAttendanceSession = async (req, res) => {
             message: 'Session paused successfully!',
             session: updatedSession
         });
+        await logFacultyActivity(facultyId, 'pause_session', { session_id });
     } catch (error) {
         console.error('Error pausing session:', error);
         res.status(500).json({ message: 'Internal server error pausing session.' });
@@ -530,6 +536,7 @@ const resumeAttendanceSession = async (req, res) => {
             message: 'Session resumed successfully!',
             session: updatedSession
         });
+        await logFacultyActivity(facultyId, 'resume_session', { session_id });
     } catch (error) {
         console.error('Error resuming session:', error);
         res.status(500).json({ message: 'Internal server error resuming session.' });

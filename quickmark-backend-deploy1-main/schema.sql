@@ -55,10 +55,18 @@ CREATE TABLE public.attendance_sessions (
     qr_sequence_number integer DEFAULT 0,
     qr_expires_at timestamp with time zone,
     attendance_weight integer,
-    CONSTRAINT attendance_sessions_attendance_weight_check CHECK (((attendance_weight >= 1) AND (attendance_weight <= 4)))
+    CONSTRAINT attendance_sessions_attendance_weight_check CHECK (((attendance_weight >= 1) AND (attendance_weight <= 6)))
 );
 
-COMMENT ON COLUMN public.attendance_sessions.attendance_weight IS 'Weight assigned to this attendance session (1-4) by faculty when submitting attendance';
+COMMENT ON COLUMN public.attendance_sessions.attendance_weight IS 'Weight assigned to this attendance session (1-6) by faculty when submitting attendance';
+
+CREATE TABLE IF NOT EXISTS faculty_activity_logs (
+    log_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    faculty_id UUID NOT NULL,
+    action TEXT NOT NULL,
+    details JSONB,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
 
 CREATE TABLE public.departments (
     department_id uuid DEFAULT gen_random_uuid() NOT NULL,

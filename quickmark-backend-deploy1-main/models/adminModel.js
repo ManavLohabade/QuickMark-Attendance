@@ -842,6 +842,7 @@ const getStudentsForAttendanceSheet = async () => {
 const getDashboardStats = async () => {
     const query = `
         SELECT 
+            (SELECT COUNT(*) FROM degrees) AS total_degrees,
             (SELECT COUNT(*) FROM departments) AS total_departments,
             (SELECT COUNT(*) FROM faculties) AS total_faculties,
             (SELECT COUNT(*) FROM students) AS total_students,

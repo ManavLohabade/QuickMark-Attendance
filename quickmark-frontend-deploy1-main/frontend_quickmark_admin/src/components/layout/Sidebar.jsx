@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   Book,
   User,
+  Users, // Add Users icon for Faculty Management
   ShieldAlert,
   Settings,
   Building,
@@ -24,6 +25,7 @@ export default function Sidebar({ currentPage, navigateTo, onLogout }) {
     { path: "Defaulters", label: "Defaulters", icon: ShieldAlert },
     { path: "FaceRegister", label: "Face Register", icon: "📷" },
     { path: "AdminActivityLog", label: "Activity Log", icon: Activity },
+    { path: "FacultyManagement", label: "Faculty Management", icon: Users }, // Move here, below Activity Log
     { path: "Settings", label: "Settings", icon: Settings },
   ];
 
