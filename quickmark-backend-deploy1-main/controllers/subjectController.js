@@ -42,7 +42,29 @@ const getSubjectStudents = async (req, res) => {
     }
 };
 
+// Get total students enrolled in a subject
+const getSubjectStudentCount = async (req, res) => {
+    const { subject_id } = req.params;
+    const facultyId = req.user.id;
+    
+    try {
+        // Check if faculty is assigned to this subject
+        const isAssigned = await subjectModel.isFacultyAssignedToSubject(facultyId, subject_id);
+        if (!isAssigned) {
+            return res.status(403).json({ message: 'You are not assigned to this subject.' });
+        }
+        
+        const count = await subjectModel.getEnrolledStudentCount(subject_id);
+        
+        res.status(200).json({ count });
+    } catch (error) {
+        console.error('Error getting subject student count:', error);
+        res.status(500).json({ message: 'Internal server error getting student count.' });
+    }
+};
+
 module.exports = {
     getFacultySubjects,
-    getSubjectStudents
+    getSubjectStudents,
+    getSubjectStudentCount
 };

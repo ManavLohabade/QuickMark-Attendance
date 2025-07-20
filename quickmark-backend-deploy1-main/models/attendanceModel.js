@@ -22,14 +22,12 @@ const generateNextQRCode = async (sessionId, subjectCode, sessionDate) => {
         UPDATE attendance_sessions 
         SET 
             qr_sequence_number = qr_sequence_number + 1,
-            qr_expires_at = CURRENT_TIMESTAMP + INTERVAL '5 seconds',
-            updated_at = CURRENT_TIMESTAMP
+            qr_expires_at = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata') + INTERVAL '5 seconds',
+            updated_at = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
         WHERE session_id = $1 AND status = 'open'
         RETURNING qr_sequence_number, qr_expires_at;
     `;
     try {
-        console.log(`Generating next QR for session: ${sessionId}, subject: ${subjectCode}, date: ${sessionDate}`);
-        
         const result = await pool.query(query, [sessionId]);
         if (result.rows.length === 0) {
             throw new Error('Session not found or not open');
@@ -37,11 +35,18 @@ const generateNextQRCode = async (sessionId, subjectCode, sessionDate) => {
         
         const { qr_sequence_number } = result.rows[0];
         
-        // Ensure sessionDate is a string and format it properly
-        const dateString = sessionDate instanceof Date ? sessionDate.toISOString().split('T')[0] : String(sessionDate);
-        const formattedDate = dateString.replace(/-/g, '').substring(4, 8); // Extract MM-DD from YYYY-MM-DD
-        const timestamp = Date.now(); // Current timestamp for uniqueness
-        const qrCode = `${subjectCode}-${formattedDate}-${qr_sequence_number.toString().padStart(2, '0')}-${timestamp}`;
+        // Format date in IST
+        const istDate = new Date(new Date(sessionDate).toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+        const formattedDate = `${String(istDate.getMonth() + 1).padStart(2, '0')}${String(istDate.getDate()).padStart(2, '0')}`;
+        
+        // First QR (sequence 01) has NO timestamp, others have timestamp
+        let qrCode;
+        if (qr_sequence_number === 1) {
+            qrCode = `${subjectCode}-${formattedDate}-${qr_sequence_number.toString().padStart(2, '0')}`;
+        } else {
+            const timestamp = Date.now();
+            qrCode = `${subjectCode}-${formattedDate}-${qr_sequence_number.toString().padStart(2, '0')}-${timestamp}`;
+        }
         
         console.log(`Generated QR code: ${qrCode} (sequence: ${qr_sequence_number})`);
         
@@ -50,8 +55,6 @@ const generateNextQRCode = async (sessionId, subjectCode, sessionDate) => {
             'UPDATE attendance_sessions SET qr_code_data = $1 WHERE session_id = $2 RETURNING qr_code_data',
             [qrCode, sessionId]
         );
-        
-        console.log(`Updated QR data in DB: ${updateResult.rows[0]?.qr_code_data}`);
         
         return {
             qr_code: qrCode,
@@ -458,6 +461,43 @@ const submitAttendanceSession = async (sessionId, attendanceWeight) => {
     }
 };
 
+// Get live count for a session
+const getSessionLiveCount = async (sessionId) => {
+    const query = `
+        SELECT 
+            COUNT(DISTINCT e.student_id) AS total_students,
+            COUNT(ar.record_id) AS marked_count,
+            COUNT(CASE WHEN ar.status = 'present' THEN 1 END) AS present_count,
+            COUNT(CASE WHEN ar.status = 'absent' THEN 1 END) AS absent_count
+        FROM enrollments e
+        JOIN subjects s ON e.subject_id = s.subject_id
+        JOIN attendance_sessions ass ON s.subject_id = ass.subject_id
+        LEFT JOIN attendance_records ar ON ass.session_id = ar.session_id AND e.student_id = ar.student_id
+        WHERE ass.session_id = $1
+    `;
+    
+    try {
+        const result = await pool.query(query, [sessionId]);
+        return result.rows[0];
+    } catch (error) {
+        console.error('Error getting session live count:', error);
+        throw new Error('Database query failed.');
+    }
+};
+
+// Update session status
+const updateSessionStatus = async (sessionId, status) => {
+    const query = `
+        UPDATE attendance_sessions 
+        SET status = $1, updated_at = NOW() 
+        WHERE session_id = $2 
+        RETURNING *
+    `;
+    
+    const result = await pool.query(query, [status, sessionId]);
+    return result.rows[0];
+};
+
 module.exports = {
     createAttendanceSession,
     generateNextQRCode,
@@ -476,5 +516,7 @@ module.exports = {
     getStudentAttendanceBySubjectAndDateRange,
     isStudentEnrolledInSubject,
     getStudentsBySubjectId,
-    submitAttendanceSession
+    submitAttendanceSession,
+    getSessionLiveCount,
+    updateSessionStatus
 };

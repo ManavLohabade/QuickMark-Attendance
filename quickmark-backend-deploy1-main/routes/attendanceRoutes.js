@@ -11,7 +11,10 @@ const {
     getAdminStudentCalendarAttendance,
     overrideAttendance,
     submitAttendance,
-    verifySession
+    verifySession,
+    getSessionLiveCount,
+    pauseAttendanceSession,  // Add this
+    resumeAttendanceSession  // Add this
 } = require('../controllers/attendanceController');
 
 const { authMiddleware, requireAdminOrFaculty } = require('../middleware/authMiddleware');
@@ -34,6 +37,12 @@ router.post('/:session_id/end', authMiddleware, requireAdminOrFaculty, endAttend
 // Submit attendance with weight (Faculty only)
 router.post('/:session_id/submit', authMiddleware, requireAdminOrFaculty, submitAttendance);
 
+// Pause attendance session (Faculty only)
+router.post('/:session_id/pause', authMiddleware, requireAdminOrFaculty, pauseAttendanceSession);
+
+// Resume attendance session (Faculty only)
+router.post('/:session_id/resume', authMiddleware, requireAdminOrFaculty, resumeAttendanceSession);
+
 // Get attendance data for student calendar view (Admin only - no assignment required)
 router.get('/admin/subjects/:subject_id/students/:student_id/calendar', authMiddleware, requireAdmin, getAdminStudentCalendarAttendance);
 
@@ -42,5 +51,8 @@ router.get('/subjects/:subject_id/students/:student_id/calendar', authMiddleware
 
 // Verify session (QR scan) - issues a short-lived token after QR validation
 router.post('/verify-session', authMiddleware, verifySession);
+
+// Get live count for a session
+router.get('/:session_id/live-count', authMiddleware, requireAdminOrFaculty, getSessionLiveCount);
 
 module.exports = router;
