@@ -371,8 +371,8 @@ const submitAttendance = async (req, res) => {
     const { attendance_weight } = req.body;
     const facultyId = req.user.id;
 
-    if (!attendance_weight || attendance_weight < 1 || attendance_weight > 4) {
-        return res.status(400).json({ message: 'Attendance weight must be between 1 and 4.' });
+    if (!attendance_weight || attendance_weight < 1 || attendance_weight > 6) {
+        return res.status(400).json({ message: 'Attendance weight must be between 1 and 6.' });
     }
 
     try {
@@ -381,8 +381,9 @@ const submitAttendance = async (req, res) => {
             return res.status(404).json({ message: 'Attendance session not found.' });
         }
 
-        if (session.status !== 'open') {
-            return res.status(400).json({ message: 'Session is not active or already submitted.' });
+        // Allow submission for closed sessions (after end session)
+        if (session.status !== 'open' && session.status !== 'closed') {
+            return res.status(400).json({ message: 'Session is not in a valid state for submission.' });
         }
 
         if (session.faculty_id !== facultyId) {
@@ -443,6 +444,98 @@ const verifySession = async (req, res) => {
     }
 };
 
+// Get live count of students who have marked attendance for a session
+const getSessionLiveCount = async (req, res) => {
+    const { session_id } = req.params;
+    const facultyId = req.user.id;
+    
+    try {
+        const session = await attendanceModel.findSessionById(session_id);
+        if (!session) {
+            return res.status(404).json({ message: 'Attendance session not found.' });
+        }
+        
+        if (session.faculty_id !== facultyId) {
+            return res.status(403).json({ message: 'You are not authorized to view this session.' });
+        }
+        
+        const liveCount = await attendanceModel.getSessionLiveCount(session_id);
+        
+        res.status(200).json({
+            session_id,
+            total_students: liveCount.total_students,
+            present_count: liveCount.present_count,
+            absent_count: liveCount.absent_count,
+            marked_count: liveCount.marked_count
+        });
+    } catch (error) {
+        console.error('Error getting session live count:', error);
+        res.status(500).json({ message: 'Internal server error getting live count.' });
+    }
+};
+
+// Pause attendance session
+const pauseAttendanceSession = async (req, res) => {
+    const { session_id } = req.params;
+    const facultyId = req.user.id;
+
+    try {
+        const session = await attendanceModel.findSessionById(session_id);
+        if (!session) {
+            return res.status(404).json({ message: 'Attendance session not found.' });
+        }
+
+        if (session.faculty_id !== facultyId) {
+            return res.status(403).json({ message: 'You are not authorized to pause this session.' });
+        }
+
+        if (session.status !== 'open') {
+            return res.status(400).json({ message: 'Session is not active.' });
+        }
+
+        const updatedSession = await attendanceModel.updateSessionStatus(session_id, 'paused');
+        
+        res.status(200).json({
+            message: 'Session paused successfully!',
+            session: updatedSession
+        });
+    } catch (error) {
+        console.error('Error pausing session:', error);
+        res.status(500).json({ message: 'Internal server error pausing session.' });
+    }
+};
+
+// Resume attendance session
+const resumeAttendanceSession = async (req, res) => {
+    const { session_id } = req.params;
+    const facultyId = req.user.id;
+
+    try {
+        const session = await attendanceModel.findSessionById(session_id);
+        if (!session) {
+            return res.status(404).json({ message: 'Attendance session not found.' });
+        }
+
+        if (session.faculty_id !== facultyId) {
+            return res.status(403).json({ message: 'You are not authorized to resume this session.' });
+        }
+
+        if (session.status !== 'paused') {
+            return res.status(400).json({ message: 'Session is not paused.' });
+        }
+
+        const updatedSession = await attendanceModel.updateSessionStatus(session_id, 'open');
+        
+        res.status(200).json({
+            message: 'Session resumed successfully!',
+            session: updatedSession
+        });
+    } catch (error) {
+        console.error('Error resuming session:', error);
+        res.status(500).json({ message: 'Internal server error resuming session.' });
+    }
+};
+
 module.exports = {
     startAttendanceSession,
     generateNextQRCode,
@@ -453,5 +546,8 @@ module.exports = {
     getStudentOwnCalendarAttendance,
     overrideAttendance,
     submitAttendance,
-    verifySession
+    verifySession,
+    getSessionLiveCount,
+    pauseAttendanceSession,  // Add this
+    resumeAttendanceSession  // Add this
 };

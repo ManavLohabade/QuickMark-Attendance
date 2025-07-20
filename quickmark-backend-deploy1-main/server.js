@@ -23,6 +23,7 @@ const corsOptions = {
     'http://127.0.0.1:4173',
     'https://quickmark-frontend-deploy1-4nlf.vercel.app', // Deployed frontend admin
     'https://quickmark-frontend-deploy1-f1wm.vercel.app', // Deployed frontend faculty
+    'https://quickmark-frontend-deploy1-f1wm-eg8cpqbar.vercel.app', // Deployed frontend admin
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

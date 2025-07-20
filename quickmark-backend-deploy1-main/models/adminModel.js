@@ -110,7 +110,7 @@ const getAllDepartments = async (page = 1, limit = 10, degree_id = null) => {
         query += ' ORDER BY name LIMIT $2 OFFSET $3';
     } else {
         query += ' ORDER BY name LIMIT $1 OFFSET $2';
-        params = [limit, offset];
+        params = [Number(limit), offset];
         countParams = [];
     }
     try {
