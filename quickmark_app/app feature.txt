@@ -1,0 +1,120 @@
+﻿# Flutter Attendance App: Design and Architecture
+
+This document outlines the design, architecture, and technical specifications for a Flutter-based student attendance application.
+
+## 1. Core Features
+
+* **User Authentication:** Students log in using their roll number and password.
+* **Face Registration:** New users are prompted to register their face. Existing users can re-register from the settings screen.
+* **Face Verification:** Before marking attendance, the app verifies the student's identity by matching their live face with the registered one.
+* **QR Code Scanning:** After successful face verification, the app opens a QR code scanner to capture the live QR code for the class session.
+* **Attendance Marking:** The app sends the scanned QR data to the backend to mark attendance.
+* **View Attendance:** Students can view their attendance history.
+
+## 2. Architecture
+
+We will use a clean architecture approach to separate concerns and make the app scalable and maintainable.
+
+* **Data Layer:** Responsible for data retrieval from the network (API calls to your backend) and local sources (shared preferences for storing the JWT token and face data).
+* **Domain Layer:** Contains the core business logic of the application (use cases like user login, face registration, attendance marking). This layer is independent of the UI and data layers.
+* **Presentation Layer:** The UI of the application (widgets, screens, and state management). We will use the **BLoC (Business Logic Component)** pattern for state management to handle the flow of data and events between the UI and the domain layer.
+
+## 3. Folder Structure
+
+
+lib/
+├── main.dart
+├── core/
+│ ├── usecases/
+│ ├── errors/
+│ ├── network/
+│ └── utils/
+├── data/
+│ ├── datasources/
+│ │ ├── remote/
+│ │ └── local/
+│ ├── models/
+│ └── repositories/
+├── domain/
+│ ├── entities/
+│ ├── repositories/
+│ └── usecases/
+└── presentation/
+├── bloc/
+├── screens/
+│ ├── login/
+│ ├── home/
+│ ├── face_registration/
+│ ├── qr_scanner/
+│ └── settings/
+└── widgets/
+## 4. Key Dependencies
+
+* `flutter_bloc`: For state management.
+* `http`: For making API requests.
+* `camera`: To access the device camera for face detection and registration.
+* `google_ml_kit`: For on-device face detection.
+* `tflite_flutter`: To run the MobileFaceNet model for face embedding generation.
+* `qr_code_scanner`: For scanning QR codes.
+* `shared_preferences`: For local data storage.
+* `image_picker`: To allow users to pick an image for re-registration.
+
+## 5. Face Detection and Registration Strategy
+
+This is a critical part of the application. Here's an optimized approach:
+
+1.  **Face Detection (On-Device):**
+   * Use the `google_ml_kit` package for fast and accurate face detection directly on the user's device. This avoids sending the entire camera stream to a server, which is better for performance and privacy.
+   * When a face is detected, crop the image to the bounding box of the face.
+
+2.  **Face Embedding Generation (On-Device):**
+   * Load the `mobilefacenet.tflite` model using the `tflite_flutter` package.
+   * Pre-process the cropped face image (resize to the model's input size, normalize pixel values).
+   * Feed the pre-processed image to the MobileFaceNet model. The model will output a fixed-size vector (an "embedding") that represents the unique facial features. This embedding is a numerical representation of the face.
+
+3.  **Face Registration and Storage:**
+   * **Registration:** During the initial onboarding or re-registration, generate the face embedding as described above.
+   * **Storage:** Securely store this embedding. For simplicity in this mobile app, we can store the embedding locally using `shared_preferences` after converting the numerical array to a string. For a more robust solution, you would encrypt this data or store it on a secure server associated with the student's profile (as your backend seems to support with the `/face` endpoint).
+
+4.  **Face Verification and Similarity Search:**
+   * **Live Verification:** When the user needs to be verified (before marking attendance), use the camera to detect their face and generate a *new* embedding in real-time.
+   * **Similarity Comparison:** Compare the newly generated embedding with the stored embedding. A common and effective way to do this is by calculating the **Cosine Similarity** between the two vectors.
+       * Cosine similarity measures the cosine of the angle between two non-zero vectors. A value close to 1 indicates a high degree of similarity (a match), while a value close to 0 indicates low similarity.
+       * You'll need to set a **threshold** (e.g., 0.8). If the cosine similarity is above this threshold, the faces are considered a match.
+
+This on-device approach is:
+
+* **Fast:** All processing happens on the user's phone.
+* **Private:** The user's facial images don't need to leave the device for the core verification process.
+* **Offline Capable:** The core face detection and verification can work without an internet connection (though marking attendance will still require it).
+
+## 6. User Flow
+
+1.  **App Launch:**
+   * Check for a stored JWT token.
+   * If a token exists and is valid, navigate to the Home Screen.
+   * Otherwise, navigate to the Login Screen.
+
+2.  **Login:**
+   * User enters roll number and password.
+   * On submit, call the `/auth/login` endpoint.
+   * On success, store the token and navigate to the Home Screen. Check if the user has a registered face. If not, prompt for face registration.
+
+3.  **Face Registration:**
+   * Show a camera preview.
+   * Use `google_ml_kit` to detect a face.
+   * Once a clear face is detected, generate the embedding using MobileFaceNet.
+   * Store the embedding locally.
+   * Optionally, send the image to your backend via the `/:id/face` endpoint if you want server-side storage as well.
+
+4.  **Mark Attendance:**
+   * User taps the "Mark Attendance" button on the Home Screen.
+   * The app initiates face verification.
+   * If the face is verified, the QR code scanner opens.
+   * User scans the QR code.
+   * The app calls the `/attendance/mark` endpoint with the scanned data.
+   * Show a success or failure message.
+
+5.  **Settings:**
+   * Provide an option to "Re-register Face," which will trigger the face registration flow again.
+   * Provide a "Logout" button.
