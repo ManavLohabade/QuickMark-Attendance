@@ -108,7 +108,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       'Sign in to mark your attendance',
                       style: TextStyle(
                         fontSize: 16,
-                        color: const Color(0xFF333333).withOpacity(0.7),
+                        color: const Color(0xFF333333).withValues(alpha: 0.7),
                         fontFamily: 'Roboto',
                       ),
                       textAlign: TextAlign.center,
@@ -168,7 +168,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           "Don't have an account? ",
                           style: TextStyle(
                             fontSize: 16,
-                            color: const Color(0xFF333333).withOpacity(0.7),
+                            color: const Color(
+                              0xFF333333,
+                            ).withValues(alpha: 0.7),
                             fontFamily: 'Roboto',
                           ),
                         ),
@@ -243,11 +245,11 @@ class _LoginScreenState extends State<LoginScreen> {
               )
             : null,
         labelStyle: TextStyle(
-          color: const Color(0xFF333333).withOpacity(0.7),
+          color: const Color(0xFF333333).withValues(alpha: 0.7),
           fontFamily: 'Roboto',
         ),
         hintStyle: TextStyle(
-          color: const Color(0xFF333333).withOpacity(0.5),
+          color: const Color(0xFF333333).withValues(alpha: 0.5),
           fontFamily: 'Roboto',
         ),
         border: OutlineInputBorder(

@@ -40,7 +40,7 @@ class FaceDetectionPainter extends CustomPainter {
 
     final Paint fillPaint = Paint()
       ..style = PaintingStyle.fill
-      ..color = const Color(0xFF50E3C2).withOpacity(0.1);
+      ..color = const Color(0xFF50E3C2).withValues(alpha: 0.1);
 
     // Get camera preview size
     final cameraSize = cameraController.value.previewSize!;
@@ -158,7 +158,7 @@ class FaceDetectionPainter extends CustomPainter {
     final Paint guidePaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0
-      ..color = Colors.white.withOpacity(0.5);
+      ..color = Colors.white.withValues(alpha: .5);
 
     final centerX = size.width / 2;
     final centerY = size.height / 2;

@@ -131,9 +131,9 @@ class AttendanceStatsCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3), width: 1),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
       ),
       child: Column(
         children: [
@@ -154,7 +154,7 @@ class AttendanceStatsCard extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 12,
-              color: const Color(0xFF333333).withOpacity(0.7),
+              color: const Color(0xFF333333).withValues(alpha: 0.7),
               fontFamily: 'Roboto',
             ),
           ),
@@ -213,7 +213,7 @@ class AttendanceStatsCard extends StatelessWidget {
           _getAttendanceMessage(percentage),
           style: TextStyle(
             fontSize: 12,
-            color: const Color(0xFF333333).withOpacity(0.7),
+            color: const Color(0xFF333333).withValues(alpha: 0.7),
             fontFamily: 'Roboto',
           ),
         ),

@@ -381,7 +381,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ), // card borderRadius from design.json
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: .1),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -480,12 +480,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   CircleAvatar(
                     radius: 20,
                     backgroundColor: record.present
-                        ? const Color(0xFF50E3C2).withOpacity(
-                            0.2,
+                        ? const Color(0xFF50E3C2).withValues(
+                            alpha: 0.2,
                           ) // accentColor
                         : const Color(
                             0xFFD0021B,
-                          ).withOpacity(0.2), // errorColor
+                          ).withValues(alpha: 0.2), // errorColor
                     child: Icon(
                       record.present ? Icons.check : Icons.close,
                       color: record.present
@@ -513,7 +513,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           record.facultyName ?? 'Unknown Faculty',
                           style: TextStyle(
                             fontSize: 14,
-                            color: const Color(0xFF333333).withOpacity(0.7),
+                            color: const Color(
+                              0xFF333333,
+                            ).withValues(alpha: 0.7),
                             fontFamily: 'Roboto',
                           ),
                         ),
@@ -539,7 +541,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         '2 hours ago', // You can format the timestamp here
                         style: TextStyle(
                           fontSize: 12,
-                          color: const Color(0xFF333333).withOpacity(0.5),
+                          color: const Color(0xFF333333).withValues(alpha: 0.5),
                           fontFamily: 'Roboto',
                         ),
                       ),

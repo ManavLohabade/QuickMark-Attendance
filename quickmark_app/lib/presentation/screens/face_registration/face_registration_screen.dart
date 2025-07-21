@@ -427,8 +427,12 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen>
                 ),
                 decoration: BoxDecoration(
                   color: _isFaceDetected
-                      ? const Color(0xFF50E3C2).withOpacity(0.1) // accentColor
-                      : const Color(0xFFD0021B).withOpacity(0.1), // errorColor
+                      ? const Color(0xFF50E3C2).withValues(
+                          alpha: 0.1,
+                        ) // accentColor
+                      : const Color(
+                          0xFFD0021B,
+                        ).withValues(alpha: 0.1), // errorColor
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: _isFaceDetected

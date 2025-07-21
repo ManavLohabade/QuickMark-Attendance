@@ -127,9 +127,11 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF4A90E2).withOpacity(0.1),
+        color: const Color(0xFF4A90E2).withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF4A90E2).withOpacity(0.3)),
+        border: Border.all(
+          color: const Color(0xFF4A90E2).withValues(alpha: .3),
+        ),
       ),
       child: Row(
         children: [

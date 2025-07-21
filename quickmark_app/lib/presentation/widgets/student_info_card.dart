@@ -23,7 +23,9 @@ class StudentInfoCard extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 30,
-                  backgroundColor: const Color(0xFF4A90E2).withOpacity(0.1),
+                  backgroundColor: const Color(
+                    0xFF4A90E2,
+                  ).withValues(alpha: 0.1),
                   child: const Icon(
                     Icons.person,
                     size: 30,
@@ -51,7 +53,7 @@ class StudentInfoCard extends StatelessWidget {
                         'Roll No: ${user.rollNumber ?? 'N/A'}',
                         style: TextStyle(
                           fontSize: 14,
-                          color: const Color(0xFF333333).withOpacity(0.7),
+                          color: const Color(0xFF333333).withValues(alpha: 0.7),
                           fontFamily: 'Roboto',
                         ),
                       ),
@@ -66,7 +68,7 @@ class StudentInfoCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: const Color(
                       0xFF50E3C2,
-                    ).withOpacity(0.1), // accentColor
+                    ).withValues(alpha: 0.1), // accentColor
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Text(
@@ -141,7 +143,7 @@ class StudentInfoCard extends StatelessWidget {
               label,
               style: TextStyle(
                 fontSize: 12,
-                color: const Color(0xFF333333).withOpacity(0.6),
+                color: const Color(0xFF333333).withValues(alpha: 0.6),
                 fontFamily: 'Roboto',
               ),
             ),

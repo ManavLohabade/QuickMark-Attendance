@@ -129,7 +129,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       'Register for QuickMark attendance',
                       style: TextStyle(
                         fontSize: 16,
-                        color: const Color(0xFF333333).withOpacity(0.7),
+                        color: const Color(0xFF333333).withValues(alpha: 0.7),
                         fontFamily: 'Roboto',
                       ),
                       textAlign: TextAlign.center,
@@ -321,7 +321,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           'Already have an account? ',
                           style: TextStyle(
                             fontSize: 16,
-                            color: const Color(0xFF333333).withOpacity(0.7),
+                            color: const Color(
+                              0xFF333333,
+                            ).withValues(alpha: 0.7),
                             fontFamily: 'Roboto',
                           ),
                         ),
@@ -394,11 +396,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
               )
             : null,
         labelStyle: TextStyle(
-          color: const Color(0xFF333333).withOpacity(0.7),
+          color: const Color(0xFF333333).withValues(alpha: 0.7),
           fontFamily: 'Roboto',
         ),
         hintStyle: TextStyle(
-          color: const Color(0xFF333333).withOpacity(0.5),
+          color: const Color(0xFF333333).withValues(alpha: 0.5),
           fontFamily: 'Roboto',
         ),
         border: OutlineInputBorder(

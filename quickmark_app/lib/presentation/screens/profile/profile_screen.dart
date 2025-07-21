@@ -170,7 +170,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 CircleAvatar(
                   radius: 50,
-                  backgroundColor: const Color(0xFF4A90E2).withOpacity(0.1),
+                  backgroundColor: const Color(
+                    0xFF4A90E2,
+                  ).withValues(alpha: 0.1),
                   child: const Icon(
                     Icons.person,
                     size: 50,
@@ -220,7 +222,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               'Roll No: ${user.rollNumber}',
               style: TextStyle(
                 fontSize: 16,
-                color: const Color(0xFF333333).withOpacity(0.7),
+                color: const Color(0xFF333333).withValues(alpha: 0.7),
                 fontFamily: 'Roboto',
               ),
             ),
@@ -228,7 +230,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFF50E3C2).withOpacity(0.1),
+                color: const Color(0xFF50E3C2).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
@@ -378,7 +380,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           icon,
           color: enabled
               ? const Color(0xFF4A90E2)
-              : const Color(0xFF4A90E2).withOpacity(0.5),
+              : const Color(0xFF4A90E2).withValues(alpha: 0.5),
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -401,7 +403,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         labelStyle: TextStyle(
           color: enabled
               ? const Color(0xFF333333)
-              : const Color(0xFF333333).withOpacity(0.5),
+              : const Color(0xFF333333).withValues(alpha: .5),
           fontFamily: 'Roboto',
         ),
       ),

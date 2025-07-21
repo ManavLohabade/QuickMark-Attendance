@@ -18,8 +18,8 @@ class AttendanceRecordCard extends StatelessWidget {
             CircleAvatar(
               radius: 24,
               backgroundColor: record.present
-                  ? const Color(0xFF50E3C2).withOpacity(0.2)
-                  : const Color(0xFFD0021B).withOpacity(0.2),
+                  ? const Color(0xFF50E3C2).withValues(alpha: 0.2)
+                  : const Color(0xFFD0021B).withValues(alpha: 0.2),
               child: Icon(
                 record.present ? Icons.check : Icons.close,
                 color: record.present
@@ -50,7 +50,7 @@ class AttendanceRecordCard extends StatelessWidget {
                     record.facultyName ?? 'Unknown Faculty',
                     style: TextStyle(
                       fontSize: 14,
-                      color: const Color(0xFF333333).withOpacity(0.7),
+                      color: const Color(0xFF333333).withValues(alpha: 0.7),
                       fontFamily: 'Roboto',
                     ),
                   ),
@@ -60,14 +60,14 @@ class AttendanceRecordCard extends StatelessWidget {
                       Icon(
                         Icons.access_time,
                         size: 14,
-                        color: const Color(0xFF333333).withOpacity(0.5),
+                        color: const Color(0xFF333333).withValues(alpha: 0.5),
                       ),
                       const SizedBox(width: 4),
                       Text(
                         _formatTime(record.time),
                         style: TextStyle(
                           fontSize: 12,
-                          color: const Color(0xFF333333).withOpacity(0.5),
+                          color: const Color(0xFF333333).withValues(alpha: 0.5),
                           fontFamily: 'Roboto',
                         ),
                       ),
@@ -88,8 +88,8 @@ class AttendanceRecordCard extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: record.present
-                        ? const Color(0xFF50E3C2).withOpacity(0.1)
-                        : const Color(0xFFD0021B).withOpacity(0.1),
+                        ? const Color(0xFF50E3C2).withValues(alpha: 0.1)
+                        : const Color(0xFFD0021B).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -110,7 +110,7 @@ class AttendanceRecordCard extends StatelessWidget {
                     'Marked at',
                     style: TextStyle(
                       fontSize: 10,
-                      color: const Color(0xFF333333).withOpacity(0.5),
+                      color: const Color(0xFF333333).withValues(alpha: 0.5),
                       fontFamily: 'Roboto',
                     ),
                   ),
@@ -118,7 +118,7 @@ class AttendanceRecordCard extends StatelessWidget {
                     _formatTime(record.markedAt),
                     style: TextStyle(
                       fontSize: 12,
-                      color: const Color(0xFF333333).withOpacity(0.7),
+                      color: const Color(0xFF333333).withValues(alpha: 0.7),
                       fontWeight: FontWeight.w600,
                       fontFamily: 'Roboto',
                     ),
