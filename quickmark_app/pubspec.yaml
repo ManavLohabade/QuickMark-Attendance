@@ -46,8 +46,8 @@ dependencies:
   # Local storage
   shared_preferences: ^2.2.2
   
-  # QR code
-  qr_code_scanner: ^1.0.1
+  # QR code scanning
+  mobile_scanner: ^5.2.3
   qr_flutter: ^4.1.0
   
   # Camera and image

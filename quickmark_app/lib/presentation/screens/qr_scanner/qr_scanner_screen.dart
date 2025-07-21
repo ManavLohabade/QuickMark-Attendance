@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:qr_code_scanner/qr_code_scanner.dart';
-import 'dart:io';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../bloc/attendance/attendance_bloc.dart';
 import '../../bloc/attendance/attendance_event.dart';
 import '../../bloc/attendance/attendance_state.dart';
@@ -19,15 +18,15 @@ class QRScannerScreen extends StatefulWidget {
 }
 
 class _QRScannerScreenState extends State<QRScannerScreen> {
-  final GlobalKey qrKey = GlobalKey(debugLabel: 'QR');
-  Barcode? result;
-  QRViewController? controller;
+  MobileScannerController? controller;
+  BarcodeCapture? result;
   bool _isScanning = true;
   bool _isFlashOn = false;
 
   @override
   void initState() {
     super.initState();
+    controller = MobileScannerController();
     _checkFaceRegistration();
   }
 
@@ -94,32 +93,22 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     );
   }
 
-  @override
-  void reassemble() {
-    super.reassemble();
-    if (Platform.isAndroid) {
-      controller!.pauseCamera();
-    } else if (Platform.isIOS) {
-      controller!.resumeCamera();
+  void _onBarcodeDetect(BarcodeCapture capture) {
+    if (_isScanning && capture.barcodes.isNotEmpty) {
+      final String? code = capture.barcodes.first.rawValue;
+      if (code != null) {
+        setState(() {
+          result = capture;
+          _isScanning = false;
+        });
+        _handleQRCodeScanned(code);
+      }
     }
   }
 
-  void _onQRViewCreated(QRViewController controller) {
-    this.controller = controller;
-    controller.scannedDataStream.listen((scanData) {
-      if (_isScanning && scanData.code != null) {
-        setState(() {
-          result = scanData;
-          _isScanning = false;
-        });
-        _handleQRCodeScanned(scanData.code!);
-      }
-    });
-  }
-
   void _handleQRCodeScanned(String qrData) {
-    // Pause the scanner
-    controller?.pauseCamera();
+    // Stop the scanner
+    controller?.stop();
 
     // Debug print the scanned QR data
     print('QR Code Scanned: $qrData');
@@ -141,7 +130,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 
   void _toggleFlash() async {
     if (controller != null) {
-      await controller!.toggleFlash();
+      await controller!.toggleTorch();
       setState(() {
         _isFlashOn = !_isFlashOn;
       });
@@ -153,7 +142,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       result = null;
       _isScanning = true;
     });
-    controller?.resumeCamera();
+    controller?.start();
   }
 
   @override
@@ -227,18 +216,8 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
         },
         child: Stack(
           children: [
-            // QR Scanner View
-            QRView(
-              key: qrKey,
-              onQRViewCreated: _onQRViewCreated,
-              overlay: QrScannerOverlayShape(
-                borderColor: const Color(0xFF50E3C2),
-                borderRadius: 10,
-                borderLength: 30,
-                borderWidth: 10,
-                cutOutSize: MediaQuery.of(context).size.width * 0.8,
-              ),
-            ),
+            // Mobile Scanner View
+            MobileScanner(controller: controller, onDetect: _onBarcodeDetect),
 
             // QR Scanner Custom Overlay
             Positioned.fill(child: _buildScannerOverlay()),
@@ -342,7 +321,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  result!.code!,
+                                  result!.barcodes.first.rawValue ?? 'No data',
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(
                                     color: Colors.white,
@@ -466,12 +445,111 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
   }
 
   Widget _buildScannerOverlay() {
+    final size = MediaQuery.of(context).size;
+    final scanArea = size.width * 0.8;
+
     return Container(
-      decoration: BoxDecoration(color: Colors.transparent),
-      child:
-          Container(), // Empty container since QRView provides its own overlay
+      decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5)),
+      child: Stack(
+        children: [
+          // Create transparent center area
+          Center(
+            child: Container(
+              width: scanArea,
+              height: scanArea,
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFF50E3C2), width: 2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+          ),
+          // Corner decorations
+          Center(
+            child: SizedBox(
+              width: scanArea,
+              height: scanArea,
+              child: Stack(
+                children: [
+                  // Top-left corner
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          top: BorderSide(color: Color(0xFF50E3C2), width: 4),
+                          left: BorderSide(color: Color(0xFF50E3C2), width: 4),
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Top-right corner
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          top: BorderSide(color: Color(0xFF50E3C2), width: 4),
+                          right: BorderSide(color: Color(0xFF50E3C2), width: 4),
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Bottom-left corner
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: Color(0xFF50E3C2),
+                            width: 4,
+                          ),
+                          left: BorderSide(color: Color(0xFF50E3C2), width: 4),
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Bottom-right corner
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: Color(0xFF50E3C2),
+                            width: 4,
+                          ),
+                          right: BorderSide(color: Color(0xFF50E3C2), width: 4),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-// Remove the QRScannerOverlayPainter class since we're using QRView's built-in overlay
+// Using mobile_scanner package for better performance and maintenance
+// MobileScanner uses the latest MLKit for detecting barcodes and QR codes
+// On Android it uses CameraX, and on iOS the native AVFoundation
