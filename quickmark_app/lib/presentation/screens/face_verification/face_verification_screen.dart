@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:camera/camera.dart';
-import 'package:google_ml_kit/google_ml_kit.dart';
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'dart:typed_data';
 import '../../bloc/attendance/attendance_bloc.dart';
 import '../../bloc/attendance/attendance_event.dart';
@@ -60,8 +60,8 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen> {
   }
 
   void _initializeFaceDetector() {
-    _faceDetector = GoogleMlKit.vision.faceDetector(
-      FaceDetectorOptions(
+    _faceDetector = FaceDetector(
+      options: FaceDetectorOptions(
         enableContours: true,
         enableLandmarks: true,
         enableClassification: true,

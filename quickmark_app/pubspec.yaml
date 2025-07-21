@@ -53,12 +53,13 @@ dependencies:
   # Camera and image
   camera: ^0.10.5+9
   image_picker: ^1.0.7
+  image: ^4.2.0
   path_provider: ^2.1.2
   path: ^1.9.0
   
   # Face detection
-  google_ml_kit: ^0.16.3
-  tflite_flutter: ^0.10.4
+  google_mlkit_face_detection: ^0.13.1
+  tflite_flutter: ^0.11.0
   
   # Utils
   intl: ^0.19.0

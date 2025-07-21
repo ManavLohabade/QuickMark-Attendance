@@ -2,8 +2,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:camera/camera.dart';
-import 'package:google_ml_kit/google_ml_kit.dart';
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
+import 'package:image/image.dart' as img;
 import '../../bloc/face/face_bloc.dart';
 import '../../bloc/face/face_event.dart';
 import '../../bloc/face/face_state.dart';
@@ -27,6 +28,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen>
   bool _isDetecting = false;
   bool _isFaceDetected = false;
   List<Face> _detectedFaces = [];
+  CameraImage? _currentCameraImage; // Store current camera image for processing
 
   // ML Kit
   late FaceDetector _faceDetector;
@@ -38,6 +40,123 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen>
   // Face registration state
   bool _isProcessing = false;
   String? _errorMessage;
+
+  // Image conversion utilities
+  img.Image? convertCameraImage(CameraImage cameraImage) {
+    if (cameraImage.format.group == ImageFormatGroup.yuv420) {
+      return _convertYUV420(cameraImage);
+    } else if (cameraImage.format.group == ImageFormatGroup.bgra8888) {
+      return _convertBGRA8888(cameraImage);
+    }
+    return null;
+  }
+
+  img.Image _convertBGRA8888(CameraImage image) {
+    return img.Image.fromBytes(
+      width: image.width,
+      height: image.height,
+      bytes: image.planes[0].bytes.buffer,
+      order: img.ChannelOrder.bgra,
+    );
+  }
+
+  img.Image _convertYUV420(CameraImage image) {
+    final int width = image.width;
+    final int height = image.height;
+    final int uvRowStride = image.planes[1].bytesPerRow;
+    final int uvPixelStride = image.planes[1].bytesPerPixel!;
+    final imageBytes = Uint8List(width * height * 3);
+
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        final int uvIndex =
+            uvPixelStride * (x / 2).floor() + uvRowStride * (y / 2).floor();
+        final int index = y * width + x;
+
+        final yp = image.planes[0].bytes[index];
+        final up = image.planes[1].bytes[uvIndex];
+        final vp = image.planes[2].bytes[uvIndex];
+
+        int r = (yp + vp * 1436 / 1024 - 179).round().clamp(0, 255);
+        int g = (yp - up * 46549 / 131072 + 44 - vp * 93604 / 131072 + 91)
+            .round()
+            .clamp(0, 255);
+        int b = (yp + up * 1814 / 1024 - 227).round().clamp(0, 255);
+
+        imageBytes[index * 3] = r.toUnsigned(8);
+        imageBytes[index * 3 + 1] = g.toUnsigned(8);
+        imageBytes[index * 3 + 2] = b.toUnsigned(8);
+      }
+    }
+    return img.Image.fromBytes(
+      width: width,
+      height: height,
+      bytes: imageBytes.buffer,
+      order: img.ChannelOrder.rgb,
+    );
+  }
+
+  // Generate face embedding using the new processing logic
+  Float32List? getFaceEmbedding(
+    CameraImage cameraImage,
+    Face face,
+    Interpreter interpreter,
+  ) {
+    try {
+      // 1. Convert CameraImage to a standard Image format
+      img.Image? convertedImage = convertCameraImage(cameraImage);
+      if (convertedImage == null) return null;
+
+      // 2. Crop the image to the detected face
+      // The bounding box from google_ml_kit gives us the coordinates.
+      double x = face.boundingBox.left;
+      double y = face.boundingBox.top;
+      double w = face.boundingBox.width;
+      double h = face.boundingBox.height;
+
+      // Use the image package to crop the image
+      img.Image croppedImage = img.copyCrop(
+        convertedImage,
+        x: x.round(),
+        y: y.round(),
+        width: w.round(),
+        height: h.round(),
+      );
+
+      // 3. Resize the image to the model's input size (e.g., 112x112 for MobileFaceNet)
+      img.Image resizedImage = img.copyResize(
+        croppedImage,
+        width: 112,
+        height: 112,
+      );
+
+      // 4. Normalize the image and convert to a Float32List
+      // This is the crucial step that replaces the broken internal logic.
+      Float32List imageAsList = Float32List(1 * 112 * 112 * 3);
+      int i = 0;
+      for (final pixel in resizedImage) {
+        // Normalize pixel values to be between -1 and 1
+        imageAsList[i++] = (pixel.r - 127.5) / 127.5;
+        imageAsList[i++] = (pixel.g - 127.5) / 127.5;
+        imageAsList[i++] = (pixel.b - 127.5) / 127.5;
+      }
+
+      // Reshape the list to the format the model expects: [1, 112, 112, 3]
+      final input = imageAsList.reshape([1, 112, 112, 3]);
+
+      // The output will have a shape like [1, 192] (for MobileFaceNet)
+      final output = List.filled(1 * 192, 0.0).reshape([1, 192]);
+
+      // 5. Run the interpreter
+      interpreter.run(input, output);
+
+      // 6. Return the embedding
+      return output[0] as Float32List;
+    } catch (e) {
+      print('Error generating face embedding: $e');
+      return null;
+    }
+  }
 
   @override
   void initState() {
@@ -137,6 +256,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen>
     if (_isDetecting || !_isModelLoaded) return;
 
     _isDetecting = true;
+    _currentCameraImage = cameraImage; // Store for face processing
 
     try {
       final inputImage = _convertCameraImageToInputImage(cameraImage);
@@ -185,23 +305,53 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen>
   }
 
   Future<void> _captureAndProcessFace() async {
-    if (!_isFaceDetected || _detectedFaces.isEmpty || _isProcessing) return;
+    if (!_isFaceDetected ||
+        _detectedFaces.isEmpty ||
+        _isProcessing ||
+        _currentCameraImage == null ||
+        _interpreter == null) {
+      return;
+    }
 
     setState(() {
       _isProcessing = true;
     });
 
     try {
-      // Capture image
-      final XFile imageFile = await _cameraController!.takePicture();
+      // Use the first detected face
+      final Face face = _detectedFaces.first;
 
-      // Register face using FaceBloc
-      context.read<FaceBloc>().add(
-        RegisterFaceEvent(faceImageUrl: imageFile.path),
+      // Generate face embedding using our new processing logic
+      final Float32List? embedding = getFaceEmbedding(
+        _currentCameraImage!,
+        face,
+        _interpreter!,
       );
+
+      if (embedding != null) {
+        // For now, we'll still capture the image file for the UI/storage
+        final XFile imageFile = await _cameraController!.takePicture();
+
+        // Check if the widget is still mounted before using context
+        if (mounted) {
+          // Register face using FaceBloc - you might want to modify FaceBloc to accept embeddings
+          context.read<FaceBloc>().add(
+            RegisterFaceEvent(faceImageUrl: imageFile.path),
+          );
+        }
+
+        print(
+          'Face embedding generated successfully: ${embedding.length} features',
+        );
+      } else {
+        setState(() {
+          _errorMessage = 'Failed to generate face embedding';
+          _isProcessing = false;
+        });
+      }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Error capturing face: $e';
+        _errorMessage = 'Error processing face: $e';
         _isProcessing = false;
       });
     }
