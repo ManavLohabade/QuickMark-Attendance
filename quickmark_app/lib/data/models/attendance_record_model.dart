@@ -3,28 +3,17 @@ import '../../domain/entities/attendance_record.dart';
 /// Model for attendance record based on API responses
 class AttendanceRecordModel extends AttendanceRecord {
   AttendanceRecordModel({
-    required String id,
-    required String sessionId,
-    required String studentId,
-    required String subjectId,
-    required String subjectName,
-    required String facultyName,
-    required DateTime timestamp,
-    required bool present,
-    required String verificationMethod,
-    String? imageUrl,
-  }) : super(
-         id: id,
-         sessionId: sessionId,
-         studentId: studentId,
-         subjectId: subjectId,
-         subjectName: subjectName,
-         facultyName: facultyName,
-         timestamp: timestamp,
-         present: present,
-         verificationMethod: verificationMethod,
-         imageUrl: imageUrl,
-       );
+    required super.id,
+    required super.sessionId,
+    required super.studentId,
+    required super.subjectId,
+    required super.subjectName,
+    required super.facultyName,
+    required super.timestamp,
+    required super.present,
+    required super.verificationMethod,
+    super.imageUrl,
+  });
 
   /// Create AttendanceRecordModel from API JSON response
   factory AttendanceRecordModel.fromJson(Map<String, dynamic> json) {

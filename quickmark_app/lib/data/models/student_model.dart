@@ -7,28 +7,18 @@ class StudentModel extends User {
   final String? token;
 
   StudentModel({
-    required String id,
-    required String name,
-    required String email,
-    required String rollNumber,
+    required super.id,
+    required super.name,
+    required super.email,
+    required super.rollNumber,
     this.departmentId,
-    String? department,
+    super.department,
     this.currentYear,
-    String? section,
-    String? photoUrl,
-    bool isFaceRegistered = false,
+    super.section,
+    super.photoUrl,
+    super.isFaceRegistered = false,
     this.token,
-  }) : super(
-         id: id,
-         name: name,
-         email: email,
-         rollNumber: rollNumber,
-         isFaceRegistered: isFaceRegistered,
-         photoUrl: photoUrl,
-         department: department,
-         year: currentYear,
-         section: section,
-       );
+  }) : super(year: currentYear);
 
   /// Create StudentModel from API JSON response
   factory StudentModel.fromJson(Map<String, dynamic> json) {
@@ -48,6 +38,7 @@ class StudentModel extends User {
   }
 
   /// Convert StudentModel to JSON for API requests
+  @override
   Map<String, dynamic> toJson() {
     final data = <String, dynamic>{
       'id': int.tryParse(id) ?? id,
@@ -106,7 +97,7 @@ class StudentModel extends User {
       rollNumber: rollNumber ?? this.rollNumber,
       departmentId: departmentId ?? this.departmentId,
       department: department ?? this.department,
-      currentYear: year ?? this.currentYear,
+      currentYear: year ?? currentYear,
       section: section ?? this.section,
       photoUrl: photoUrl ?? this.photoUrl,
       isFaceRegistered: isFaceRegistered ?? this.isFaceRegistered,

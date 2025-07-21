@@ -2,26 +2,16 @@ import '../../domain/entities/attendance.dart';
 
 class AttendanceSessionModel extends AttendanceSession {
   AttendanceSessionModel({
-    required String sessionId,
-    required String subjectName,
-    required String subjectId,
-    required String facultyName,
-    required DateTime sessionDate,
-    required DateTime startTime,
-    DateTime? endTime,
-    required String status,
-    String? qrCodeData,
-  }) : super(
-         sessionId: sessionId,
-         subjectName: subjectName,
-         subjectId: subjectId,
-         facultyName: facultyName,
-         sessionDate: sessionDate,
-         startTime: startTime,
-         endTime: endTime,
-         status: status,
-         qrCodeData: qrCodeData,
-       );
+    required super.sessionId,
+    required super.subjectName,
+    required super.subjectId,
+    required super.facultyName,
+    required super.sessionDate,
+    required super.startTime,
+    super.endTime,
+    required super.status,
+    super.qrCodeData,
+  });
 
   factory AttendanceSessionModel.fromJson(Map<String, dynamic> json) {
     return AttendanceSessionModel(
@@ -39,6 +29,7 @@ class AttendanceSessionModel extends AttendanceSession {
     );
   }
 
+  @override
   Map<String, dynamic> toJson() {
     return {
       'session_id': sessionId,
@@ -70,18 +61,12 @@ class AttendanceSessionModel extends AttendanceSession {
 
 class AttendanceRecordModel extends AttendanceRecord {
   AttendanceRecordModel({
-    required String recordId,
-    required String sessionId,
-    required String studentId,
-    required String status,
-    DateTime? attendedAt,
-  }) : super(
-         recordId: recordId,
-         sessionId: sessionId,
-         studentId: studentId,
-         status: status,
-         attendedAt: attendedAt,
-       );
+    required super.recordId,
+    required super.sessionId,
+    required super.studentId,
+    required super.status,
+    super.attendedAt,
+  });
 
   factory AttendanceRecordModel.fromJson(Map<String, dynamic> json) {
     return AttendanceRecordModel(
@@ -95,6 +80,7 @@ class AttendanceRecordModel extends AttendanceRecord {
     );
   }
 
+  @override
   Map<String, dynamic> toJson() {
     return {
       'record_id': recordId,

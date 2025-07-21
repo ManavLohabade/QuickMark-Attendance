@@ -97,7 +97,7 @@ class ApiResponseModel<T> {
 
     if (data != null) {
       if (toJsonT != null) {
-        result['data'] = toJsonT(data!);
+        result['data'] = toJsonT(data as T);
       } else if (data is Map<String, dynamic>) {
         result['data'] = data;
       } else {

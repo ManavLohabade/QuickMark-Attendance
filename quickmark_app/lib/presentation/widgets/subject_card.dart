@@ -10,14 +10,14 @@ class SubjectCard extends StatelessWidget {
   final VoidCallback? onTap;
 
   const SubjectCard({
-    Key? key,
+    super.key,
     required this.subjectName,
     required this.facultyName,
     required this.startTime,
     this.endTime,
     required this.status,
     this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

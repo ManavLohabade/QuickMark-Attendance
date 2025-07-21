@@ -32,7 +32,7 @@ class User {
     String? section,
   }) {
     return User(
-      id: this.id,
+      id: id,
       name: name ?? this.name,
       email: email ?? this.email,
       rollNumber: rollNumber ?? this.rollNumber,

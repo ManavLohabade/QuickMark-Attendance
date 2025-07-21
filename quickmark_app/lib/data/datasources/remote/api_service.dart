@@ -37,7 +37,7 @@ class ApiService {
     final headers = {'Content-Type': 'application/json'};
 
     if (requireAuth && _localStorage != null) {
-      final token = _localStorage!.getToken();
+      final token = _localStorage.getToken();
       if (token != null) {
         headers['Authorization'] = 'Bearer $token';
       }

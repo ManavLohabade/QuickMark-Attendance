@@ -7,10 +7,10 @@ class AttendanceSuccessScreen extends StatelessWidget {
   final String subjectName;
 
   const AttendanceSuccessScreen({
-    Key? key,
+    super.key,
     required this.record,
     required this.subjectName,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
