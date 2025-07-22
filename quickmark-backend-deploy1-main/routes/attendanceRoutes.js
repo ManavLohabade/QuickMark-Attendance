@@ -17,13 +17,13 @@ const {
     resumeAttendanceSession  // Add this
 } = require('../controllers/attendanceController');
 
-const { authMiddleware, requireAdminOrFaculty } = require('../middleware/authMiddleware');
+const { authMiddleware, requireAdminOrFaculty, facultyAuthMiddleware } = require('../middleware/authMiddleware');
 const { requireAdmin } = require('../middleware/accessControlMiddleware');
 
 // Protect routes using appropriate middleware
 
 // Override attendance – only Admin or Faculty can do this
-router.post('/student/:studentId/attendance/override', authMiddleware, requireAdminOrFaculty, overrideAttendance);
+router.post('/override', facultyAuthMiddleware, overrideAttendance);
 
 // Start a new attendance session (Admin or Faculty)
 router.post('/start', authMiddleware, requireAdminOrFaculty, startAttendanceSession);

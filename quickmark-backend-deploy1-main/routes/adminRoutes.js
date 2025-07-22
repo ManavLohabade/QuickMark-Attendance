@@ -25,6 +25,7 @@ const {
     createDegree,
     updateDegree,
     deleteDegree,
+    getStudentCalendarAttendance,
 } = require('../controllers/adminController');
 const adminAuthMiddleware = require('../middleware/adminAuthMiddleware');
 
@@ -69,6 +70,7 @@ router.get('/students', adminAuthMiddleware, getStudents);
 router.post('/students', adminAuthMiddleware, createStudent);
 router.put('/students/:student_id', adminAuthMiddleware, updateStudent);
 router.delete('/students/:student_id', adminAuthMiddleware, deleteStudent);
+router.get('/student/:student_id/attendance/calendar', adminAuthMiddleware, getStudentCalendarAttendance);
 
 // Bulk import students
 router.post('/students/bulk', adminAuthMiddleware, bulkImportStudents);

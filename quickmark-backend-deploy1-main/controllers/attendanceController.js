@@ -5,6 +5,14 @@ const redisClient = require('../config/redis');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const { logFacultyActivity } = require('../utils/activityLogger');
+const { Pool } = require('pg');
+const pool = new Pool({
+    user: process.env.DB_USER,
+    host: process.env.DB_HOST,
+    database: process.env.DB_NAME,
+    password: process.env.DB_PASSWORD,
+    port: parseInt(process.env.DB_PORT, 10),
+});
 
 // Starts a new attendance session for a subject.
 const startAttendanceSession = async (req, res) => {
@@ -364,32 +372,118 @@ const getStudentOwnCalendarAttendance = async (req, res) => {
     }
 };
 
-// OPTIONAL: Override Attendance (for Admin/Faculty)
+// Manual override attendance for a specific date
 const overrideAttendance = async (req, res) => {
-    const { studentId } = req.params;
-    const { subject_id, session_date, new_status } = req.body;
+    const { subject_id, student_id, date, status } = req.body;
+    const faculty_id = req.user.faculty_id;
 
-    if (!(req.user.isAdmin || req.user.isFaculty)) {
-        return res.status(403).json({ message: 'Forbidden: Only admin or faculty can override attendance.' });
+    console.log('Override request received:', {
+        subject_id,
+        student_id,
+        date,
+        status,
+        faculty_id
+    });
+
+    if (!subject_id || !student_id || !date || !status) {
+        return res.status(400).json({ message: 'Missing required fields' });
     }
 
-    if (!studentId || !subject_id || !session_date || !new_status) {
-        return res.status(400).json({ message: 'Missing required fields.' });
+    if (!['present', 'absent', 'late'].includes(status)) {
+        return res.status(400).json({ message: 'Invalid status. Must be present, absent, or late.' });
     }
 
     try {
-        const session = await attendanceModel.findSessionByDate(subject_id, session_date);
-        if (!session) {
-            return res.status(404).json({ message: 'Attendance session not found for given date and subject.' });
+        // Verify faculty teaches this subject
+        const teacherQuery = `
+            SELECT 1 FROM faculty_subjects 
+            WHERE faculty_id = $1 AND subject_id = $2
+        `;
+        const teacherResult = await pool.query(teacherQuery, [faculty_id, subject_id]);
+
+        if (teacherResult.rows.length === 0) {
+            return res.status(403).json({ message: 'Not authorized to modify attendance for this subject' });
         }
 
-        const updated = await attendanceModel.overrideAttendanceStatus(session.session_id, studentId, new_status);
-        res.status(200).json({ message: 'Attendance overridden.', updated });
-        await logFacultyActivity(req.user.id, 'override_attendance', { student_id: studentId, session_id: session.session_id, new_status });
+        // Check if student is enrolled in the subject
+        const enrollmentQuery = `
+            SELECT 1 FROM enrollments 
+            WHERE student_id = $1 AND subject_id = $2
+        `;
+        const enrollmentResult = await pool.query(enrollmentQuery, [student_id, subject_id]);
 
+        if (enrollmentResult.rows.length === 0) {
+            return res.status(400).json({ message: 'Student is not enrolled in this subject' });
+        }
+
+        // Get or create attendance session for the date
+        let sessionQuery = `
+            SELECT session_id FROM attendance_sessions 
+            WHERE subject_id = $1 AND session_date = $2::date
+        `;
+        let session = await pool.query(sessionQuery, [subject_id, date]);
+
+        let session_id;
+        if (session.rows.length === 0) {
+            // Create new session
+            const newSessionQuery = `
+                INSERT INTO attendance_sessions 
+                (subject_id, faculty_id, session_date, start_time, end_time, status) 
+                VALUES ($1, $2, $3::date, $4::time, $4::time, 'completed') 
+                RETURNING session_id
+            `;
+            const now = new Date();
+            const timeStr = now.toTimeString().split(' ')[0];
+            const newSession = await pool.query(newSessionQuery, [subject_id, faculty_id, date, timeStr]);
+            session_id = newSession.rows[0].session_id;
+        } else {
+            session_id = session.rows[0].session_id;
+        }
+
+        // Update or insert attendance record
+        const upsertQuery = `
+            INSERT INTO attendance_records 
+            (session_id, student_id, status, attended_at, updated_at) 
+            VALUES ($1, $2, $3::attendance_record_status, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) 
+            ON CONFLICT (session_id, student_id) 
+            DO UPDATE SET 
+                status = $3::attendance_record_status,
+                updated_at = CURRENT_TIMESTAMP
+            RETURNING record_id
+        `;
+        const record = await pool.query(upsertQuery, [session_id, student_id, status]);
+
+        // Log the manual override
+        const logQuery = `
+            INSERT INTO faculty_activity_logs 
+            (faculty_id, action, details) 
+            VALUES ($1, 'manual_override', $2)
+        `;
+        await pool.query(logQuery, [
+            faculty_id,
+            JSON.stringify({
+                subject_id,
+                student_id,
+                date,
+                status,
+                session_id,
+                record_id: record.rows[0].record_id
+            })
+        ]);
+
+        console.log('Attendance override successful:', {
+            session_id,
+            record_id: record.rows[0].record_id,
+            status
+        });
+
+        res.json({ 
+            message: 'Attendance updated successfully',
+            record_id: record.rows[0].record_id
+        });
     } catch (error) {
-        console.error('Error in overrideAttendance:', error.message);
-        res.status(500).json({ message: 'Failed to override attendance.' });
+        console.error('Error in manual override:', error);
+        res.status(500).json({ message: 'Internal server error during attendance override' });
     }
 };
 

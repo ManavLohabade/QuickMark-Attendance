@@ -8,7 +8,7 @@ const PDFDocument = require('pdfkit');
 const { bulkCreateStudents } = require('../models/studentModel');
 const logger = require('../utils/logger');
 const { bulkCreateFaculty, bulkCreateSubjects, bulkCreateDepartments, bulkCreateDegrees, logAdminAction } = require('../models/adminModel');
-const pool = require('../config/db').pool;
+const { pool } = require('../config/db');
 const { Parser } = require('json2csv'); // Add at the top for CSV export
 
 // Export enrollments for a subject as CSV
@@ -1102,6 +1102,71 @@ const getEnrollmentAudit = async (req, res) => {
     }
 };
 
+// Get student attendance calendar data
+const getStudentCalendarAttendance = async (req, res) => {
+    const { student_id } = req.params;
+    const { month, year } = req.query;
+
+    if (!month || !year || isNaN(parseInt(month)) || isNaN(parseInt(year))) {
+        return res.status(400).json({ message: 'Month and Year must be valid numbers.' });
+    }
+
+    try {
+        console.log('Fetching attendance for:', { student_id, month, year });
+        
+        const query = `
+            SELECT 
+                ar.record_id,
+                ar.status,
+                ar.attended_at,
+                ar.created_at,
+                ass.session_date,
+                s.subject_name,
+                s.subject_code
+            FROM attendance_records ar
+            JOIN attendance_sessions ass ON ar.session_id = ass.session_id
+            JOIN subjects s ON ass.subject_id = s.subject_id
+            WHERE ar.student_id = $1
+            AND EXTRACT(MONTH FROM ass.session_date) = $2
+            AND EXTRACT(YEAR FROM ass.session_date) = $3
+            ORDER BY ass.session_date ASC;
+        `;
+
+        const result = await pool.query(query, [student_id, month, year]);
+        console.log('Query result:', result.rows);
+        
+        // Calculate attendance statistics
+        const stats = result.rows.reduce((acc, record) => {
+            if (record.status === 'present') acc.present++;
+            else if (record.status === 'absent') acc.absent++;
+            else if (record.status === 'late') acc.late++;
+            return acc;
+        }, { present: 0, absent: 0, late: 0 });
+
+        const total = stats.present + stats.absent + stats.late;
+        const attendancePercentage = total > 0 
+            ? ((stats.present + stats.late) / total * 100).toFixed(1)
+            : 0;
+
+        const response = {
+            records: result.rows,
+            stats: {
+                totalSessions: total,
+                presentSessions: stats.present,
+                lateSessions: stats.late,
+                absentSessions: stats.absent,
+                attendancePercentage: parseFloat(attendancePercentage)
+            }
+        };
+        
+        console.log('Sending response:', response);
+        res.json(response);
+    } catch (error) {
+        console.error('Error fetching student calendar attendance:', error);
+        res.status(500).json({ message: 'Internal server error fetching attendance data.' });
+    }
+};
+
 module.exports = {
     registerAdmin,
     loginAdmin,
@@ -1151,4 +1216,5 @@ module.exports = {
     getAuditLogs,
     getEnrollmentAudit,
     exportSubjectEnrollmentsCSV,
+    getStudentCalendarAttendance,
 };
