@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Filter, Printer, Upload } from 'lucide-react';
 import Papa from 'papaparse';
+import { API_BASE_URL } from '../../utils/api';
 
-const API_URL = '/api/degrees';
+const API_URL = `${API_BASE_URL}/degrees`;
 
 export default function Degree() {
   const [degrees, setDegrees] = useState([]);
@@ -129,7 +130,7 @@ export default function Degree() {
           }
           try {
             // TODO: Replace with actual backend bulk-create endpoint
-            await fetch('https://quickmark-backend-deploy1.onrender.com/api/admin/degrees/bulk', {
+            await fetch(`${API_BASE_URL}/admin/degrees/bulk`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('adminToken')}` },
               body: JSON.stringify({ degrees: results.data })

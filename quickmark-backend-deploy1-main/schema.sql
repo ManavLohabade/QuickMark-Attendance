@@ -128,6 +128,8 @@ CREATE TABLE public.subjects (
     CONSTRAINT chk_semester CHECK ((semester = ANY (ARRAY[1, 2])))
 );
 
+ALTER TABLE public.subjects ADD COLUMN IF NOT EXISTS credits integer NOT NULL DEFAULT 3;
+
 CREATE TABLE public.users (
     id serial PRIMARY KEY,
     email character varying(255) NOT NULL UNIQUE,
@@ -213,6 +215,16 @@ CREATE TABLE IF NOT EXISTS admin_action_logs (
     entity_id TEXT,
     details JSONB,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table to track enrollment and drop actions (audit log)
+CREATE TABLE IF NOT EXISTS enrollment_audit (
+    audit_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES students(student_id) ON DELETE CASCADE,
+    subject_id UUID NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
+    action VARCHAR(20) NOT NULL, -- 'enroll' or 'drop'
+    admin_id UUID REFERENCES admins(admin_id) ON DELETE SET NULL,
+    action_timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 -- PostgreSQL database dump complete

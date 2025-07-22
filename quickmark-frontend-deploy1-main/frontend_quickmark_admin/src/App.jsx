@@ -17,6 +17,8 @@ import EnrolledStudents from "./pages/subjects/EnrolledStudents";
 import DegreesManager from "./pages/admin/DegreesManager";
 import AdminActivityLog from "./pages/admin/AdminActivityLog";
 import FacultyManagement from './pages/admin/FacultyManagement';
+import BulkEnrollStudents from './pages/admin/BulkEnrollStudents';
+import CoreEnrollments from './pages/enrollments/CoreEnrollments';
 import axios from "axios";
 
 // --- Import API utilities ---
@@ -29,7 +31,8 @@ import {
   dashboardAPI,
   settingsAPI,
   reportsAPI,
-  facultyAssignmentAPI
+  facultyAssignmentAPI,
+  API_BASE_URL
 } from "./utils/api";
 
 // Notification component
@@ -230,8 +233,11 @@ export default function App() {
   // Fetch degrees
   const fetchDegrees = async () => {
     try {
-      const response = await axios.get("https://quickmark-backend-deploy1.onrender.com/api/degrees");
-      setDegrees(response.data);
+      const token = localStorage.getItem('adminToken');
+      const response = await axios.get(`${API_BASE_URL}/admin/degrees`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setDegrees(response.data.degrees || []);
     } catch (error) {
       console.error('Error fetching degrees:', error);
       showNotification('Failed to load degrees', 'error');
@@ -635,6 +641,12 @@ export default function App() {
       case "FacultyManagement":
         return <FacultyManagement />;
 
+      case "BulkEnrollStudents":
+        return <BulkEnrollStudents />;
+
+      case "CoreEnrollments":
+        return <CoreEnrollments departments={departments} />;
+
       default:
         return <Dashboard 
           allStudents={students} 
@@ -663,6 +675,8 @@ export default function App() {
       case "Degree": return "Degree";
       case "AdminActivityLog": return "Admin Activity Log";
       case "FacultyManagement": return "Faculty Management";
+      case "BulkEnrollStudents": return "Bulk Enroll Students";
+      case "CoreEnrollments": return "Core Enrollments";
       default: return "Dashboard";
     }
   };

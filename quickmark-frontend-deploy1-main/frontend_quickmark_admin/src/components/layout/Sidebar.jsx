@@ -11,6 +11,7 @@ import {
   Building,
   GraduationCap, // Add this for Degree icon
   Activity,
+  UserPlus,
 } from "lucide-react";
 
 export default function Sidebar({ currentPage, navigateTo, onLogout }) {
@@ -22,6 +23,7 @@ export default function Sidebar({ currentPage, navigateTo, onLogout }) {
     { path: "Faculty", label: "Faculty", icon: User },
     { path: "Subjects", label: "Subjects", icon: Book },
     { path: "Students", label: "Students", icon: User },
+    { path: "CoreEnrollments", label: "Enrollments", icon: UserPlus },
     { path: "Defaulters", label: "Defaulters", icon: ShieldAlert },
     { path: "FaceRegister", label: "Face Register", icon: "📷" },
     { path: "AdminActivityLog", label: "Activity Log", icon: Activity },

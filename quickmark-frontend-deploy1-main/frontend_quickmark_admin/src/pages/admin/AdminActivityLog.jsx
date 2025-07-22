@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, Calendar, User, Activity, Database, RefreshCw } from 'lucide-react';
 import axios from 'axios';
+import { API_BASE_URL } from '../../utils/api';
 
 export default function AdminActivityLog() {
   const [logs, setLogs] = useState([]);
@@ -42,7 +43,7 @@ export default function AdminActivityLog() {
       });
 
       const response = await axios.get(
-        `https://quickmark-backend-deploy1.onrender.com/api/admin/audit-logs?${params.toString()}`,
+        `${API_BASE_URL}/api/admin/audit-logs?${params.toString()}`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }

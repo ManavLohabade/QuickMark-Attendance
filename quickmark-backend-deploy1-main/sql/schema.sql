@@ -33,21 +33,17 @@ CREATE TABLE IF NOT EXISTS admins (
 
 
 CREATE TABLE IF NOT EXISTS subjects (
-    subject_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    subject_name VARCHAR(255) NOT NULL,
-    subject_code VARCHAR(10) NOT NULL, -- Added for QR naming (e.g., DEL, CS, MATH)
-    department_id UUID NOT NULL,
+    subject_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    subject_name VARCHAR(100) NOT NULL,
+    subject_code VARCHAR(20) NOT NULL,
+    department_id UUID REFERENCES departments(department_id),
     year INT NOT NULL,
     section VARCHAR(10) NOT NULL,
-    semester INT NOT NULL CHECK (semester IN (1, 2)),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_subject_department
-        FOREIGN KEY(department_id)
-        REFERENCES departments(department_id)
-        ON DELETE RESTRICT,
-    UNIQUE (subject_name, department_id, year, section, semester),
-    UNIQUE (subject_code, department_id, year, section, semester)
+    semester INT NOT NULL,
+    is_core BOOLEAN DEFAULT TRUE,
+    credits INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS faculty_subjects (

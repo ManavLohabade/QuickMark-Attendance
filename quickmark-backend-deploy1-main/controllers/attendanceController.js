@@ -206,14 +206,26 @@ const getStudentCalendarAttendance = async (req, res) => {
 
         const records = await attendanceModel.getStudentAttendanceBySubjectAndDateRange(student_id, subject_id, startDate, endDate);
         const formattedCalendarData = {};
-
+        // Analytics
+        let totalSessions = 0, attendedSessions = 0, missedSessions = 0, lateSessions = 0;
         records.forEach(record => {
             const date = record.session_date.toISOString().split('T')[0];
-            formattedCalendarData[date] = record.attendance_status;
+            const status = record.attendance_status;
+            formattedCalendarData[date] = status;
+            totalSessions++;
+            if (status === 'present') attendedSessions++;
+            else if (status === 'absent') missedSessions++;
+            else if (status === 'late') lateSessions++;
         });
-
-        res.status(200).json(formattedCalendarData);
-
+        const attendancePercentage = totalSessions > 0 ? Math.round(((attendedSessions + lateSessions) / totalSessions) * 100) : 0;
+        res.status(200).json({
+            ...formattedCalendarData,
+            totalSessions,
+            attendedSessions,
+            missedSessions,
+            lateSessions,
+            attendancePercentage
+        });
     } catch (error) {
         console.error('Error in getStudentCalendarAttendance:', error.message);
         res.status(500).json({ message: 'Failed to fetch calendar attendance.' });
@@ -252,14 +264,26 @@ const getAdminStudentCalendarAttendance = async (req, res) => {
 
         const records = await attendanceModel.getStudentAttendanceBySubjectAndDateRange(student_id, subject_id, startDate, endDate);
         const formattedCalendarData = {};
-
+        // Analytics
+        let totalSessions = 0, attendedSessions = 0, missedSessions = 0, lateSessions = 0;
         records.forEach(record => {
             const date = record.session_date.toISOString().split('T')[0];
-            formattedCalendarData[date] = record.status;
+            const status = record.status;
+            formattedCalendarData[date] = status;
+            totalSessions++;
+            if (status === 'present') attendedSessions++;
+            else if (status === 'absent') missedSessions++;
+            else if (status === 'late') lateSessions++;
         });
-
-        res.status(200).json(formattedCalendarData);
-
+        const attendancePercentage = totalSessions > 0 ? Math.round(((attendedSessions + lateSessions) / totalSessions) * 100) : 0;
+        res.status(200).json({
+            ...formattedCalendarData,
+            totalSessions,
+            attendedSessions,
+            missedSessions,
+            lateSessions,
+            attendancePercentage
+        });
     } catch (error) {
         console.error('Error in getAdminStudentCalendarAttendance:', error.message);
         res.status(500).json({ message: 'Failed to fetch calendar attendance.' });

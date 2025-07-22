@@ -3,6 +3,7 @@ import React, { useState, useMemo, useRef } from "react";
 import { Plus, Trash2, Edit, Search, X, Upload } from "lucide-react";
 import Pagination from "../../components/common/Pagination";
 import Papa from 'papaparse';
+import { API_BASE_URL } from '../../utils/api';
 
 // --- Add Department Modal (No changes needed here) ---
 const AddDepartmentModal = ({ onClose, onSave, degrees = [] }) => {
@@ -133,7 +134,7 @@ export default function DepartmentPage({
           }
           try {
             // TODO: Replace with actual backend bulk-create endpoint
-            await fetch('https://quickmark-backend-deploy1.onrender.com/api/admin/departments/bulk', {
+            await fetch(`${API_BASE_URL}/admin/departments/bulk`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('adminToken')}` },
               body: JSON.stringify({ departments: results.data })

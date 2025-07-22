@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { PlusCircle, Edit, Trash2 } from "lucide-react";
+import { API_BASE_URL } from '../../utils/api';
 
 export default function DepartmentsManager() {
     const [departments, setDepartments] = useState([]);
@@ -18,7 +19,7 @@ export default function DepartmentsManager() {
 
     const fetchDegrees = async () => {
         try {
-            const response = await axios.get("https://quickmark-backend-deploy1.onrender.com/api/degrees");
+            const response = await axios.get(`${API_BASE_URL}/degrees`);
             setDegrees(response.data);
         } catch (err) {
             setError("Failed to load degrees.");
@@ -30,7 +31,7 @@ export default function DepartmentsManager() {
         setError("");
         try {
             const token = getAdminToken();
-            let url = "https://quickmark-backend-deploy1.onrender.com/api/admin/departments";
+            let url = `${API_BASE_URL}/admin/departments`;
             if (degreeId) {
                 url += `?degree_id=${degreeId}`;
             }
@@ -66,7 +67,7 @@ export default function DepartmentsManager() {
         try {
             const token = getAdminToken();
             await axios.post(
-                "https://quickmark-backend-deploy1.onrender.com/api/admin/departments",
+                `${API_BASE_URL}/admin/departments`,
                 { name: newDepartmentName, degree_id: newDepartmentDegree },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -88,7 +89,7 @@ export default function DepartmentsManager() {
         try {
             const token = getAdminToken();
             await axios.put(
-                `https://quickmark-backend-deploy1.onrender.com/api/admin/departments/${editingDepartment.department_id}`,
+                `${API_BASE_URL}/admin/departments/${editingDepartment.department_id}`,
                 { name: editDepartmentName, degree_id: editDepartmentDegree },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -107,7 +108,7 @@ export default function DepartmentsManager() {
         try {
             const token = getAdminToken();
             await axios.delete(
-                `https://quickmark-backend-deploy1.onrender.com/api/admin/departments/${departmentId}`,
+                `${API_BASE_URL}/admin/departments/${departmentId}`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             fetchDepartments();

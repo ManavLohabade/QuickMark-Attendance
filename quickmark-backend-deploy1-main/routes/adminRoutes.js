@@ -1,6 +1,7 @@
 // // // backend/routes/adminRoutes.js
 
-// backend/routes/adminRoutes.js
+const adminController = require('../controllers/adminController');
+console.log('DEBUG: exportSubjectEnrollmentsCSV =', adminController.exportSubjectEnrollmentsCSV);
 
 const express = require('express');
 const {
@@ -15,7 +16,15 @@ const {
     assignSubjectToFaculty, removeSubjectFromFaculty, getFacultyAssignments,
     enrollStudentInSubject, removeStudentFromSubject, getStudentEnrollments, getSubjectEnrollments,
     bulkImportStudents, bulkImportFaculty, bulkImportSubjects, bulkImportDepartments, bulkImportDegrees,
-    getAuditLogs, getFacultyActivityLogs
+    getAuditLogs, getFacultyActivityLogs,
+    bulkEnrollStudentsToSubject, bulkEnrollStudentsToMultipleSubjects, bulkEnrollCoreSubjects,
+    bulkEnrollStudentsManual,
+    exportSubjectEnrollmentsCSV,
+    getEnrollmentAudit,
+    getDegrees,
+    createDegree,
+    updateDegree,
+    deleteDegree,
 } = require('../controllers/adminController');
 const adminAuthMiddleware = require('../middleware/adminAuthMiddleware');
 
@@ -46,7 +55,7 @@ router.post('/faculty', adminAuthMiddleware, createFaculty);
 router.post('/faculty/assign-subject', adminAuthMiddleware, assignSubjectToFaculty);
 router.delete('/faculty/remove-subject', adminAuthMiddleware, removeSubjectFromFaculty);
 router.get('/faculty/:faculty_id/assignments', adminAuthMiddleware, getFacultyAssignments);
-router.get('/faculty/:faculty_id/activity-logs', adminAuthMiddleware, getFacultyActivityLogs);
+// router.get('/faculty/:faculty_id/activity-logs', adminAuthMiddleware, getFacultyActivityLogs);
 
 // Bulk import faculty
 router.post('/faculty/bulk', adminAuthMiddleware, bulkImportFaculty);
@@ -88,10 +97,31 @@ router.delete('/students/remove-subject', adminAuthMiddleware, removeStudentFrom
 router.get('/students/:student_id/enrollments', adminAuthMiddleware, getStudentEnrollments);
 router.get('/subjects/:subject_id/enrollments', adminAuthMiddleware, getSubjectEnrollments);
 
+// Export enrollments for a subject as CSV
+router.get('/enrollments/:subject_id/export-csv', adminAuthMiddleware, adminController.exportSubjectEnrollmentsCSV);
+
 // Bulk import degrees
 router.post('/degrees/bulk', adminAuthMiddleware, bulkImportDegrees);
 
+// Degree Management (Admin-only)
+router.get('/degrees', adminAuthMiddleware, getDegrees);
+router.post('/degrees', adminAuthMiddleware, createDegree);
+router.put('/degrees/:degree_id', adminAuthMiddleware, updateDegree);
+router.delete('/degrees/:degree_id', adminAuthMiddleware, deleteDegree);
+
+// Bulk enroll students to a specific subject (CSV: rollno)
+router.post('/enrollments/bulk/single-subject', adminAuthMiddleware, bulkEnrollStudentsToSubject);
+// Bulk enroll students to multiple subjects (CSV: rollno, subject_id)
+router.post('/enrollments/bulk/multi-subject', adminAuthMiddleware, bulkEnrollStudentsToMultipleSubjects);
+// Bulk enroll all students in a Dept/Year/Section/Sem to all core subjects
+router.post('/enrollments/bulk/core', adminAuthMiddleware, bulkEnrollCoreSubjects);
+// Bulk enroll students manually (from grid UI)
+router.post('/enrollments/bulk/manual', adminAuthMiddleware, bulkEnrollStudentsManual);
+
 // Fetch admin audit logs
 router.get('/audit-logs', adminAuthMiddleware, getAuditLogs);
+
+// Fetch enrollment audit/history for a subject or student
+router.get('/enrollments/audit', adminAuthMiddleware, getEnrollmentAudit);
 
 module.exports = router;

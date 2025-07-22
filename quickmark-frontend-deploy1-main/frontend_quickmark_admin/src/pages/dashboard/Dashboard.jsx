@@ -10,7 +10,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { ChevronLeft, ChevronRight, BookOpen, Users, AlertTriangle, GraduationCap, Building, Settings, Activity, Camera, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, BookOpen, Users, AlertTriangle, GraduationCap, Building, Settings, Activity, Camera, X, UserPlus } from "lucide-react";
 import InfoCard from "./InfoCard.jsx";
 
 const ITEMS_PER_PAGE = 5;
@@ -166,6 +166,14 @@ export default function Dashboard({ allStudents, allSubjects, allFaculty, allDep
           navigate={navigateTo}
           linkTo="Students"
           IconComponent={Users}
+        />
+        {/* Core Enrollments card inserted here */}
+        <InfoCard
+          title="Enrollments"
+          value=""
+          navigate={navigateTo}
+          linkTo="CoreEnrollments"
+          IconComponent={UserPlus}
         />
         <InfoCard
           title="Total Defaulters"

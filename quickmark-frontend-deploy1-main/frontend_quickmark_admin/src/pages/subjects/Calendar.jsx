@@ -166,6 +166,17 @@ export default function Calendar({ subject, student, onBack }) {
                 </div>
             )}
 
+            {/* Analytics Summary */}
+            {attendanceData && (attendanceData.totalSessions !== undefined || attendanceData.attendedSessions !== undefined) && (
+              <div className="mb-6 flex flex-wrap justify-center gap-6 text-base font-medium">
+                <div className="bg-gray-50 rounded-lg px-4 py-2 shadow border"><span className="text-gray-600">Total Sessions:</span> {attendanceData.totalSessions ?? attendanceData.total_sessions ?? 0}</div>
+                <div className="bg-green-50 rounded-lg px-4 py-2 shadow border"><span className="text-green-700">Present:</span> {attendanceData.attendedSessions ?? attendanceData.presentSessions ?? 0}</div>
+                <div className="bg-yellow-50 rounded-lg px-4 py-2 shadow border"><span className="text-yellow-700">Late:</span> {attendanceData.lateSessions ?? attendanceData.lateSessions ?? 0}</div>
+                <div className="bg-red-50 rounded-lg px-4 py-2 shadow border"><span className="text-red-700">Absent:</span> {attendanceData.missedSessions ?? attendanceData.absentSessions ?? 0}</div>
+                <div className="bg-blue-50 rounded-lg px-4 py-2 shadow border"><span className="text-blue-700">Attendance %:</span> {attendanceData.attendancePercentage ?? attendanceData.attendance_percentage ?? 0}%</div>
+              </div>
+            )}
+
             <div className="bg-white p-6 rounded-lg">
                 <div className="relative flex justify-between items-center mb-6 px-4">
                     <button onClick={goToPreviousMonth} className="p-2 rounded-full hover:bg-gray-100"><ChevronLeft size={20}/></button>

@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Users, Mail, Briefcase, Building2, ChevronDown, ChevronUp, ListChecks } from 'lucide-react';
-
-const API_BASE_URL = 'https://quickmark-backend-deploy1.onrender.com/api';
+import { API_BASE_URL } from '../../utils/api';
 
 const cardColors = [
   'bg-gradient-to-br from-blue-100 to-blue-50',

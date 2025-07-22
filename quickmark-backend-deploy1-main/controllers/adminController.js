@@ -9,6 +9,35 @@ const { bulkCreateStudents } = require('../models/studentModel');
 const logger = require('../utils/logger');
 const { bulkCreateFaculty, bulkCreateSubjects, bulkCreateDepartments, bulkCreateDegrees, logAdminAction } = require('../models/adminModel');
 const pool = require('../config/db').pool;
+const { Parser } = require('json2csv'); // Add at the top for CSV export
+
+// Export enrollments for a subject as CSV
+const exportSubjectEnrollmentsCSV = async (req, res) => {
+    console.log('exportSubjectEnrollmentsCSV called'); // Debug log
+    const { subject_id } = req.params;
+    try {
+        const enrollments = await adminModel.getSubjectEnrollments(subject_id);
+        if (!enrollments || enrollments.length === 0) {
+            return res.status(404).json({ message: 'No enrollments found for this subject.' });
+        }
+        const fields = [
+            { label: 'Roll Number', value: 'roll_number' },
+            { label: 'Name', value: 'name' },
+            { label: 'Email', value: 'email' },
+            { label: 'Department', value: 'department_name' },
+            { label: 'Year', value: 'current_year' },
+            { label: 'Section', value: 'section' }
+        ];
+        const parser = new Parser({ fields });
+        const csv = parser.parse(enrollments);
+        res.header('Content-Type', 'text/csv');
+        res.attachment(`subject_${subject_id}_enrollments.csv`);
+        return res.send(csv);
+    } catch (error) {
+        console.error('Error exporting enrollments as CSV:', error);
+        res.status(500).json({ message: 'Internal server error exporting enrollments.' });
+    }
+};
 
 // --- ADMIN AUTH ---
 const registerAdmin = async (req, res) => {
@@ -282,14 +311,14 @@ const deleteFaculty = async (req, res) => {
 
 // --- STUDENTS ---
 const getStudents = async (req, res) => {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const departmentId = req.query.departmentId || null;
+    // Accept department_id, year, section as query params
+    const department_id = req.query.department_id || req.query.departmentId || null;
     const year = req.query.year || null;
     const section = req.query.section || null;
     try {
-        const { students, totalItems, totalPages, currentPage } = await adminModel.getAllStudents(page, limit, departmentId, year, section);
-        res.status(200).json({ students, totalItems, totalPages, currentPage });
+        // Fetch all students matching the filters (no pagination for enrollment UI)
+        const students = await adminModel.getStudentsByFilters(department_id, year, section);
+        res.status(200).json({ students });
     } catch (error) {
         console.error('Error getting students:', error);
         res.status(500).json({ message: 'Internal server error getting students.' });
@@ -394,16 +423,15 @@ const deleteStudent = async (req, res) => {
 
 // --- SUBJECTS ---
 const getSubjects = async (req, res) => {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const searchTerm = req.query.searchTerm || '';
-    const filterYear = req.query.filterYear || '';
-    const filterSection = req.query.filterSection || '';
-    const filterSemester = req.query.filterSemester || '';
-    const filterDepartmentId = req.query.filterDepartmentId || '';
+    // Accept department_id, year, section, semester as query params
+    const department_id = req.query.department_id || null;
+    const year = req.query.year || null;
+    const section = req.query.section || null;
+    const semester = req.query.semester || null;
     try {
-        const { subjects, totalItems, totalPages, currentPage } = await adminModel.getAllSubjects(page, limit, searchTerm, filterYear, filterSection, filterSemester, filterDepartmentId);
-        res.status(200).json({ subjects, totalItems, totalPages, currentPage });
+        // Fetch all subjects matching the filters (no pagination for enrollment UI)
+        const subjects = await adminModel.getSubjectsByFilters(department_id, year, section, semester);
+        res.status(200).json({ subjects });
     } catch (error) {
         console.error('Error getting subjects:', error);
         res.status(500).json({ message: 'Internal server error getting subjects.' });
@@ -493,6 +521,69 @@ const deleteSubject = async (req, res) => {
             details: { error: error.message }
         });
         res.status(500).json({ message: 'Internal server error deleting subject.' });
+    }
+};
+
+// --- DEGREES ---
+const getDegrees = async (req, res) => {
+    try {
+        const degrees = await adminModel.getAllDegrees();
+        res.status(200).json({ degrees });
+    } catch (error) {
+        console.error('Error getting degrees:', error);
+        res.status(500).json({ message: 'Internal server error getting degrees.' });
+    }
+};
+
+const createDegree = async (req, res) => {
+    const adminId = req.user?.admin_id || req.user?.id || 'unknown';
+    try {
+        const { name } = req.body;
+        if (!name) {
+            return res.status(400).json({ message: 'Degree name is required.' });
+        }
+        const newDegree = await adminModel.createDegree(name);
+        logger.info(`Admin ${adminId} created degree ${newDegree.degree_id}`, {
+            action: 'create', entity: 'degree', entity_id: newDegree.degree_id, admin_id: adminId
+        });
+        res.status(201).json({ message: 'Degree created successfully.', degree: newDegree });
+    } catch (error) {
+        console.error('Error creating degree:', error);
+        res.status(500).json({ message: 'Internal server error creating degree.' });
+    }
+};
+
+const updateDegree = async (req, res) => {
+    const adminId = req.user?.admin_id || req.user?.id || 'unknown';
+    try {
+        const { degree_id } = req.params;
+        const { name } = req.body;
+        if (!name) {
+            return res.status(400).json({ message: 'Degree name is required.' });
+        }
+        const updatedDegree = await adminModel.updateDegree(degree_id, name);
+        logger.info(`Admin ${adminId} updated degree ${degree_id}`, {
+            action: 'update', entity: 'degree', entity_id: degree_id, admin_id: adminId
+        });
+        res.status(200).json({ message: 'Degree updated successfully.', degree: updatedDegree });
+    } catch (error) {
+        console.error('Error updating degree:', error);
+        res.status(500).json({ message: 'Internal server error updating degree.' });
+    }
+};
+
+const deleteDegree = async (req, res) => {
+    const adminId = req.user?.admin_id || req.user?.id || 'unknown';
+    try {
+        const { degree_id } = req.params;
+        await adminModel.deleteDegree(degree_id);
+        logger.info(`Admin ${adminId} deleted degree ${degree_id}`, {
+            action: 'delete', entity: 'degree', entity_id: degree_id, admin_id: adminId
+        });
+        res.status(200).json({ message: 'Degree deleted successfully.' });
+    } catch (error) {
+        console.error('Error deleting degree:', error);
+        res.status(500).json({ message: 'Internal server error deleting degree.' });
     }
 };
 
@@ -664,8 +755,9 @@ const enrollStudentInSubject = async (req, res) => {
     if (!student_id || !subject_id) {
         return res.status(400).json({ message: 'Student ID and Subject ID are required.' });
     }
+    const adminId = req.user?.admin_id || req.user?.id || null;
     try {
-        await adminModel.enrollStudentInSubject(student_id, subject_id);
+        await adminModel.enrollStudentInSubject(student_id, subject_id, adminId);
         res.status(200).json({ message: 'Student enrolled in subject successfully.' });
     } catch (error) {
         console.error('Error enrolling student in subject:', error);
@@ -678,8 +770,9 @@ const removeStudentFromSubject = async (req, res) => {
     if (!student_id || !subject_id) {
         return res.status(400).json({ message: 'Student ID and Subject ID are required.' });
     }
+    const adminId = req.user?.admin_id || req.user?.id || null;
     try {
-        await adminModel.removeStudentFromSubject(student_id, subject_id);
+        await adminModel.removeStudentFromSubject(student_id, subject_id, adminId);
         res.status(200).json({ message: 'Student removed from subject successfully.' });
     } catch (error) {
         console.error('Error removing student from subject:', error);
@@ -898,6 +991,66 @@ const bulkImportDegrees = async (req, res) => {
   }
 };
 
+// Bulk enroll students to a specific subject using roll numbers
+const bulkEnrollStudentsToSubject = async (req, res) => {
+    const { subject_id, rollnos } = req.body;
+    if (!subject_id || !Array.isArray(rollnos)) {
+        return res.status(400).json({ message: 'subject_id and rollnos[] are required.' });
+    }
+    try {
+        const results = await adminModel.bulkEnrollStudentsToSubject(subject_id, rollnos);
+        res.json({ results });
+    } catch (error) {
+        console.error('Error in bulkEnrollStudentsToSubject:', error);
+        res.status(500).json({ message: 'Internal server error during bulk enrollment.' });
+    }
+};
+
+// Bulk enroll students to multiple subjects using rollno, subject_id pairs
+const bulkEnrollStudentsToMultipleSubjects = async (req, res) => {
+    const { enrollments } = req.body; // [{ rollno, subject_id }, ...]
+    if (!Array.isArray(enrollments)) {
+        return res.status(400).json({ message: 'enrollments[] is required.' });
+    }
+    try {
+        const results = await adminModel.bulkEnrollStudentsToMultipleSubjects(enrollments);
+        res.json({ results });
+    } catch (error) {
+        console.error('Error in bulkEnrollStudentsToMultipleSubjects:', error);
+        res.status(500).json({ message: 'Internal server error during bulk enrollment.' });
+    }
+};
+
+// Bulk enroll all students in a Dept/Year/Section/Sem to all core subjects
+const bulkEnrollCoreSubjects = async (req, res) => {
+    const { department_id, year, section, semester } = req.body;
+    if (!department_id || !year || !section || !semester) {
+        return res.status(400).json({ message: 'department_id, year, section, and semester are required.' });
+    }
+    try {
+        const result = await adminModel.bulkEnrollCoreSubjects({ department_id, year, section, semester });
+        res.json(result);
+    } catch (error) {
+        console.error('Error in bulkEnrollCoreSubjects:', error);
+        res.status(500).json({ message: 'Internal server error during core enrollment.' });
+    }
+};
+
+// Bulk enroll students manually (from grid UI)
+const bulkEnrollStudentsManual = async (req, res) => {
+    const { enrollments } = req.body; // [{ student_id, subject_id }]
+    if (!Array.isArray(enrollments)) {
+        return res.status(400).json({ message: 'enrollments[] is required.' });
+    }
+    try {
+        const results = await adminModel.bulkEnrollStudentsManual(enrollments);
+        res.json(results);
+    } catch (error) {
+        console.error('Error in bulkEnrollStudentsManual:', error);
+        res.status(500).json({ message: 'Internal server error during manual enrollment.' });
+  }
+};
+
 // Fetch audit logs with optional filters
 const getAuditLogs = async (req, res) => {
   const { action, entity, admin_id, start_date, end_date, limit = 100 } = req.query;
@@ -931,36 +1084,21 @@ const getAuditLogs = async (req, res) => {
     res.json({ logs: result.rows });
   } catch (error) {
     res.status(500).json({ error: error.message || 'Error fetching audit logs' });
-    }
+  }
 };
 
-// --- FACULTY ACTIVITY LOGS (ADMIN) ---
-const getFacultyActivityLogs = async (req, res) => {
-    const { faculty_id, action, from, to } = req.query;
-    if (!faculty_id) {
-        return res.status(400).json({ message: 'faculty_id is required' });
-    }
-    let query = 'SELECT * FROM faculty_activity_logs WHERE faculty_id = $1';
-    const params = [faculty_id];
-    let paramIndex = 2;
-    if (action) {
-        query += ` AND action = $${paramIndex++}`;
-        params.push(action);
-    }
-    if (from) {
-        query += ` AND created_at >= $${paramIndex++}`;
-        params.push(from);
-    }
-    if (to) {
-        query += ` AND created_at <= $${paramIndex++}`;
-        params.push(to);
-    }
-    query += ' ORDER BY created_at DESC LIMIT 100';
+// Fetch enrollment audit/history for a subject or student
+const getEnrollmentAudit = async (req, res) => {
+    const { student_id, subject_id } = req.query;
     try {
-        const result = await pool.query(query, params);
-        res.json(result.rows);
-    } catch (err) {
-        res.status(500).json({ message: 'Server error', error: err.message });
+        const audit = await adminModel.getEnrollmentAudit({
+            studentId: student_id || null,
+            subjectId: subject_id || null
+        });
+        res.json({ audit });
+    } catch (error) {
+        console.error('Error fetching enrollment audit:', error);
+        res.status(500).json({ message: 'Internal server error fetching enrollment audit.' });
     }
 };
 
@@ -983,6 +1121,10 @@ module.exports = {
     createSubject,
     updateSubject,
     deleteSubject,
+    getDegrees,
+    createDegree,
+    updateDegree,
+    deleteDegree,
     getAttendanceThreshold,
     updateAttendanceThreshold,
     backupData,
@@ -1002,6 +1144,11 @@ module.exports = {
     bulkImportSubjects,
     bulkImportDepartments,
     bulkImportDegrees,
+    bulkEnrollStudentsToSubject,
+    bulkEnrollStudentsToMultipleSubjects,
+    bulkEnrollCoreSubjects,
+    bulkEnrollStudentsManual,
     getAuditLogs,
-    getFacultyActivityLogs
+    getEnrollmentAudit,
+    exportSubjectEnrollmentsCSV,
 };
