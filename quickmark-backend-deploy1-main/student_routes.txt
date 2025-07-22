@@ -1,0 +1,196 @@
+
+Student Routes API Documentation
+
+1. POST /auth/login
+
+Description: Authenticates a student and returns a JWT token.
+Request:
+Method: POST
+Headers: Content-Type: application/json
+Body:
+{
+  "roll_number": "string",
+  "password": "string"
+}
+Response:
+Success (200):
+{
+  "message": "Logged in successfully!",
+  "student": {
+    "id": "integer",
+    "roll_number": "string",
+    "name": "string",
+    "email": "string"
+  },
+  "token": "string"
+}
+Error (400): Bad Request (e.g., missing fields)
+Error (401): Unauthorized (e.g., invalid credentials)
+Error (500): Internal Server Error
+
+2. POST /auth/register
+
+Description: Registers a new student.
+Request:
+Method: POST
+Headers: Content-Type: application/json
+Body:
+{
+  "roll_number": "string",
+  "name": "string",
+  "email": "string",
+  "password": "string",
+  "department_id": "integer",
+  "current_year": "integer",
+  "section": "string"
+}
+Response:
+Success (201):
+{
+  "message": "Student registered successfully!",
+  "student": {
+    "id": "integer",
+    "roll_number": "string",
+    "name": "string",
+    "email": "string",
+    "department_id": "integer",
+    "current_year": "integer",
+    "section": "string"
+  }
+}
+Error (400): Bad Request (e.g., missing fields)
+Error (409): Conflict (e.g., roll number or email already exists)
+Error (500): Internal Server Error
+
+3. POST /:id/face
+
+Description: Registers or updates a student's face data.
+Request:
+Method: POST
+Headers: Content-Type: application/json
+Body:
+{
+  "face_image_url": "string"
+}
+Response:
+Success (200):
+{
+  "message": "Face registered successfully.",
+  "student": "object"
+}
+Error (400): Bad Request (e.g., missing `face_image_url`)
+Error (404): Not Found (e.g., student not found)
+Error (500): Internal Server Error
+
+4. POST /students/:id/photo
+
+Description: Uploads a photo for a student.
+Request:
+Method: POST
+Headers:
+- Authorization: Bearer <token> (Admin or self)
+- Content-Type: multipart/form-data
+Body: photo (file upload)
+Response:
+Success (200):
+{
+  "student": "object"
+}
+Error (400): Bad Request (e.g., no file uploaded)
+Error (500): Internal Server Error
+
+5. GET /students/:id/photo-history
+
+Description: Retrieves the photo history for a student.
+Request:
+Method: GET
+Headers: Authorization: Bearer <token> (Admin or self)
+Response:
+Success (200):
+{
+  "history": "array"
+}
+Error (500): Internal Server Error
+
+6. GET /me
+
+Description: Fetches the profile of the currently logged-in student.
+Request:
+Method: GET
+Headers: Authorization: Bearer <student_token>
+Response:
+Success (200):
+{
+  "id": "integer",
+  "roll_number": "string",
+  "name": "string",
+  "email": "string",
+  "department_id": "integer",
+  "current_year": "integer",
+  "section": "string",
+  "department_name": "string"
+}
+Error (404): Not Found
+Error (500): Internal Server Error
+
+7. POST /attendance/mark
+
+Description: Marks attendance for the logged-in student.
+Request:
+Method: POST
+Headers:
+- Authorization: Bearer <student_token>
+- Content-Type: application/json
+Body:
+{
+  "verify_session_token": "string",
+  "face_verify": "boolean"
+}
+Response:
+Success (200):
+{
+  "message": "Attendance marked successfully!",
+  "record": {
+    "session_id": "integer",
+    "student_id": "integer",
+    "status": "string",
+    "attended_at": "string"
+  }
+}
+Error (400): Bad Request (e.g., missing fields, face verification failed, already marked)
+Error (401): Unauthorized (e.g., invalid or expired session token)
+Error (403): Forbidden (e.g., session token does not match student)
+Error (500): Internal Server Error
+
+8. GET /attendance/calendar
+
+Description: Retrieves the attendance calendar for the logged-in student.
+Request:
+Method: GET
+Headers: Authorization: Bearer <student_token>
+Query Parameters:
+- subject_id: integer
+- start_date: string (e.g., 'YYYY-MM-DD')
+- end_date: string (e.g., 'YYYY-MM-DD')
+Response:
+Success (200): An array of attendance records.
+Error (400): Bad Request (e.g., missing query parameters)
+Error (403): Forbidden (e.g., not enrolled in the subject)
+Error (500): Internal Server Error
+
+9. GET /departments
+
+Description: Gets a list of all departments.
+Request:
+Method: GET
+Response:
+Success (200):
+{
+  "departments": [
+    {
+      "department_id": "integer",
+      "name": "string"
+    }
+  ]
+}
+Error (500): Internal Server Error

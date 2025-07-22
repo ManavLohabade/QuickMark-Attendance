@@ -105,6 +105,7 @@ const getAllDepartments = async (page = 1, limit = 10, degree_id = null) => {
     if (degree_id) {
         query += ' WHERE degree_id = $1';
         countQuery += ' WHERE degree_id = $1';
+
         params = [degree_id, limit, offset];
         countParams = [degree_id];
         query += ' ORDER BY name LIMIT $2 OFFSET $3';
@@ -112,6 +113,7 @@ const getAllDepartments = async (page = 1, limit = 10, degree_id = null) => {
         query += ' ORDER BY name LIMIT $1 OFFSET $2';
         params = [Number(limit), offset];
         countParams = [];
+
     }
     try {
         const [result, countResult] = await Promise.all([
@@ -1463,6 +1465,7 @@ module.exports = {
     bulkEnrollCoreSubjects,
     bulkEnrollStudentsManual,
     logAdminAction,
+
     getStudentsByFilters,
     getSubjectsByFilters,
     getEnrollmentAudit,
@@ -1471,3 +1474,4 @@ module.exports = {
     updateDegree,
     deleteDegree,
 };
+
