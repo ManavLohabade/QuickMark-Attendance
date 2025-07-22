@@ -6,6 +6,7 @@ import AddEditFacultyModal from './AddEditFacultyModal.jsx';
 import SubjectAssignmentModal from './SubjectAssignmentModal.jsx';
 import Pagination from '../../components/common/Pagination';
 import Papa from 'papaparse';
+import { API_BASE_URL } from '../../utils/api';
 
 export default function FacultyList({ 
   faculty, 
@@ -120,7 +121,7 @@ export default function FacultyList({
                     }
                     try {
                         // TODO: Replace with actual backend bulk-create endpoint
-                        await fetch('https://quickmark-backend-deploy1.onrender.com/api/admin/faculty/bulk', {
+                        await fetch(`${API_BASE_URL}/admin/faculty/bulk`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('adminToken')}` },
                             body: JSON.stringify({ faculty: results.data })

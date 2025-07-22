@@ -4,6 +4,15 @@ const studentModel = require('../models/studentModel');
 const redisClient = require('../config/redis');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
+const { logFacultyActivity } = require('../utils/activityLogger');
+const { Pool } = require('pg');
+const pool = new Pool({
+    user: process.env.DB_USER,
+    host: process.env.DB_HOST,
+    database: process.env.DB_NAME,
+    password: process.env.DB_PASSWORD,
+    port: parseInt(process.env.DB_PORT, 10),
+});
 
 // Starts a new attendance session for a subject.
 const startAttendanceSession = async (req, res) => {
@@ -47,6 +56,7 @@ const startAttendanceSession = async (req, res) => {
                 subject_code: subjectCode
             }
         });
+        await logFacultyActivity(facultyId, 'start_session', { subject_id });
     } catch (error) {
         console.error('Error starting attendance session:', error.message);
         res.status(500).json({ message: 'Internal server error starting session.' });
@@ -113,6 +123,7 @@ const endAttendanceSession = async (req, res) => {
             message: 'Attendance session ended successfully!',
             session: closedSession
         });
+        await logFacultyActivity(facultyId, 'end_session', { session_id });
     } catch (error) {
         console.error('Error in endAttendanceSession:', error.message);
         res.status(500).json({ message: 'Internal server error ending session.' });
@@ -203,14 +214,26 @@ const getStudentCalendarAttendance = async (req, res) => {
 
         const records = await attendanceModel.getStudentAttendanceBySubjectAndDateRange(student_id, subject_id, startDate, endDate);
         const formattedCalendarData = {};
-
+        // Analytics
+        let totalSessions = 0, attendedSessions = 0, missedSessions = 0, lateSessions = 0;
         records.forEach(record => {
             const date = record.session_date.toISOString().split('T')[0];
-            formattedCalendarData[date] = record.attendance_status;
+            const status = record.attendance_status;
+            formattedCalendarData[date] = status;
+            totalSessions++;
+            if (status === 'present') attendedSessions++;
+            else if (status === 'absent') missedSessions++;
+            else if (status === 'late') lateSessions++;
         });
-
-        res.status(200).json(formattedCalendarData);
-
+        const attendancePercentage = totalSessions > 0 ? Math.round(((attendedSessions + lateSessions) / totalSessions) * 100) : 0;
+        res.status(200).json({
+            ...formattedCalendarData,
+            totalSessions,
+            attendedSessions,
+            missedSessions,
+            lateSessions,
+            attendancePercentage
+        });
     } catch (error) {
         console.error('Error in getStudentCalendarAttendance:', error.message);
         res.status(500).json({ message: 'Failed to fetch calendar attendance.' });
@@ -249,14 +272,26 @@ const getAdminStudentCalendarAttendance = async (req, res) => {
 
         const records = await attendanceModel.getStudentAttendanceBySubjectAndDateRange(student_id, subject_id, startDate, endDate);
         const formattedCalendarData = {};
-
+        // Analytics
+        let totalSessions = 0, attendedSessions = 0, missedSessions = 0, lateSessions = 0;
         records.forEach(record => {
             const date = record.session_date.toISOString().split('T')[0];
-            formattedCalendarData[date] = record.status;
+            const status = record.status;
+            formattedCalendarData[date] = status;
+            totalSessions++;
+            if (status === 'present') attendedSessions++;
+            else if (status === 'absent') missedSessions++;
+            else if (status === 'late') lateSessions++;
         });
-
-        res.status(200).json(formattedCalendarData);
-
+        const attendancePercentage = totalSessions > 0 ? Math.round(((attendedSessions + lateSessions) / totalSessions) * 100) : 0;
+        res.status(200).json({
+            ...formattedCalendarData,
+            totalSessions,
+            attendedSessions,
+            missedSessions,
+            lateSessions,
+            attendancePercentage
+        });
     } catch (error) {
         console.error('Error in getAdminStudentCalendarAttendance:', error.message);
         res.status(500).json({ message: 'Failed to fetch calendar attendance.' });
@@ -337,31 +372,118 @@ const getStudentOwnCalendarAttendance = async (req, res) => {
     }
 };
 
-// OPTIONAL: Override Attendance (for Admin/Faculty)
+// Manual override attendance for a specific date
 const overrideAttendance = async (req, res) => {
-    const { studentId } = req.params;
-    const { subject_id, session_date, new_status } = req.body;
+    const { subject_id, student_id, date, status } = req.body;
+    const faculty_id = req.user.faculty_id;
 
-    if (!(req.user.isAdmin || req.user.isFaculty)) {
-        return res.status(403).json({ message: 'Forbidden: Only admin or faculty can override attendance.' });
+    console.log('Override request received:', {
+        subject_id,
+        student_id,
+        date,
+        status,
+        faculty_id
+    });
+
+    if (!subject_id || !student_id || !date || !status) {
+        return res.status(400).json({ message: 'Missing required fields' });
     }
 
-    if (!studentId || !subject_id || !session_date || !new_status) {
-        return res.status(400).json({ message: 'Missing required fields.' });
+    if (!['present', 'absent', 'late'].includes(status)) {
+        return res.status(400).json({ message: 'Invalid status. Must be present, absent, or late.' });
     }
 
     try {
-        const session = await attendanceModel.findSessionByDate(subject_id, session_date);
-        if (!session) {
-            return res.status(404).json({ message: 'Attendance session not found for given date and subject.' });
+        // Verify faculty teaches this subject
+        const teacherQuery = `
+            SELECT 1 FROM faculty_subjects 
+            WHERE faculty_id = $1 AND subject_id = $2
+        `;
+        const teacherResult = await pool.query(teacherQuery, [faculty_id, subject_id]);
+
+        if (teacherResult.rows.length === 0) {
+            return res.status(403).json({ message: 'Not authorized to modify attendance for this subject' });
         }
 
-        const updated = await attendanceModel.overrideAttendanceStatus(session.session_id, studentId, new_status);
-        res.status(200).json({ message: 'Attendance overridden.', updated });
+        // Check if student is enrolled in the subject
+        const enrollmentQuery = `
+            SELECT 1 FROM enrollments 
+            WHERE student_id = $1 AND subject_id = $2
+        `;
+        const enrollmentResult = await pool.query(enrollmentQuery, [student_id, subject_id]);
 
+        if (enrollmentResult.rows.length === 0) {
+            return res.status(400).json({ message: 'Student is not enrolled in this subject' });
+        }
+
+        // Get or create attendance session for the date
+        let sessionQuery = `
+            SELECT session_id FROM attendance_sessions 
+            WHERE subject_id = $1 AND session_date = $2::date
+        `;
+        let session = await pool.query(sessionQuery, [subject_id, date]);
+
+        let session_id;
+        if (session.rows.length === 0) {
+            // Create new session
+            const newSessionQuery = `
+                INSERT INTO attendance_sessions 
+                (subject_id, faculty_id, session_date, start_time, end_time, status) 
+                VALUES ($1, $2, $3::date, $4::time, $4::time, 'completed') 
+                RETURNING session_id
+            `;
+            const now = new Date();
+            const timeStr = now.toTimeString().split(' ')[0];
+            const newSession = await pool.query(newSessionQuery, [subject_id, faculty_id, date, timeStr]);
+            session_id = newSession.rows[0].session_id;
+        } else {
+            session_id = session.rows[0].session_id;
+        }
+
+        // Update or insert attendance record
+        const upsertQuery = `
+            INSERT INTO attendance_records 
+            (session_id, student_id, status, attended_at, updated_at) 
+            VALUES ($1, $2, $3::attendance_record_status, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) 
+            ON CONFLICT (session_id, student_id) 
+            DO UPDATE SET 
+                status = $3::attendance_record_status,
+                updated_at = CURRENT_TIMESTAMP
+            RETURNING record_id
+        `;
+        const record = await pool.query(upsertQuery, [session_id, student_id, status]);
+
+        // Log the manual override
+        const logQuery = `
+            INSERT INTO faculty_activity_logs 
+            (faculty_id, action, details) 
+            VALUES ($1, 'manual_override', $2)
+        `;
+        await pool.query(logQuery, [
+            faculty_id,
+            JSON.stringify({
+                subject_id,
+                student_id,
+                date,
+                status,
+                session_id,
+                record_id: record.rows[0].record_id
+            })
+        ]);
+
+        console.log('Attendance override successful:', {
+            session_id,
+            record_id: record.rows[0].record_id,
+            status
+        });
+
+        res.json({ 
+            message: 'Attendance updated successfully',
+            record_id: record.rows[0].record_id
+        });
     } catch (error) {
-        console.error('Error in overrideAttendance:', error.message);
-        res.status(500).json({ message: 'Failed to override attendance.' });
+        console.error('Error in manual override:', error);
+        res.status(500).json({ message: 'Internal server error during attendance override' });
     }
 };
 
@@ -397,6 +519,7 @@ const submitAttendance = async (req, res) => {
             message: 'Attendance submitted successfully!',
             session: updatedSession
         });
+        await logFacultyActivity(facultyId, 'submit_attendance', { session_id, weight: attendance_weight });
     } catch (error) {
         console.error('Error submitting attendance:', error.message);
         res.status(500).json({ message: 'Internal server error submitting attendance.' });
@@ -499,6 +622,7 @@ const pauseAttendanceSession = async (req, res) => {
             message: 'Session paused successfully!',
             session: updatedSession
         });
+        await logFacultyActivity(facultyId, 'pause_session', { session_id });
     } catch (error) {
         console.error('Error pausing session:', error);
         res.status(500).json({ message: 'Internal server error pausing session.' });
@@ -530,6 +654,7 @@ const resumeAttendanceSession = async (req, res) => {
             message: 'Session resumed successfully!',
             session: updatedSession
         });
+        await logFacultyActivity(facultyId, 'resume_session', { session_id });
     } catch (error) {
         console.error('Error resuming session:', error);
         res.status(500).json({ message: 'Internal server error resuming session.' });

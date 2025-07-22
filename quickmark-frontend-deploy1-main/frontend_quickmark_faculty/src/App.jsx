@@ -13,6 +13,7 @@ import StartQR from './pages/StartQR';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import Calendar from './pages/Calendar';
+import FacultyActivity from "./pages/FacultyActivity";
 
 // Import Common Layout Components
 import Sidebar from './components/common/Sidebar';
@@ -223,6 +224,8 @@ function App() {
         return <Profile user={user || mockUser} onLogout={handleLogout}/>;
       case '/settings':
         return <Settings />;
+      case '/activity-log':
+        return <FacultyActivity />;
       default:
         return <Dashboard user={user || mockUser} subjects={subjects} students={students}/>;
     }

@@ -39,6 +39,12 @@ export const authAPI = {
     return response.data;
   },
 
+  // Change faculty password
+  changePassword: async (current_password, new_password) => {
+    const response = await api.put('/faculty/me/password', { current_password, new_password });
+    return response.data;
+  },
+
   // Logout
   logout: () => {
     localStorage.removeItem('token');

@@ -844,6 +844,7 @@ const getStudentsForAttendanceSheet = async () => {
 const getDashboardStats = async () => {
     const query = `
         SELECT 
+            (SELECT COUNT(*) FROM degrees) AS total_degrees,
             (SELECT COUNT(*) FROM departments) AS total_departments,
             (SELECT COUNT(*) FROM faculties) AS total_faculties,
             (SELECT COUNT(*) FROM students) AS total_students,
@@ -958,7 +959,7 @@ const getFacultyAssignments = async (facultyId) => {
 };
 
 // --- STUDENT ENROLLMENT MANAGEMENT ---
-const enrollStudentInSubject = async (studentId, subjectId) => {
+const enrollStudentInSubject = async (studentId, subjectId, adminId = null) => {
     const query = `
         INSERT INTO enrollments (student_id, subject_id)
         VALUES ($1, $2)
@@ -967,6 +968,13 @@ const enrollStudentInSubject = async (studentId, subjectId) => {
     `;
     try {
         const result = await pool.query(query, [studentId, subjectId]);
+        // Audit log if enrollment happened
+        if (result.rows[0]) {
+            await pool.query(
+                `INSERT INTO enrollment_audit (student_id, subject_id, action, admin_id) VALUES ($1, $2, 'enroll', $3)`,
+                [studentId, subjectId, adminId]
+            );
+        }
         return result.rows[0];
     } catch (error) {
         console.error('Error enrolling student in subject:', error);
@@ -974,7 +982,7 @@ const enrollStudentInSubject = async (studentId, subjectId) => {
     }
 };
 
-const removeStudentFromSubject = async (studentId, subjectId) => {
+const removeStudentFromSubject = async (studentId, subjectId, adminId = null) => {
     const query = `
         DELETE FROM enrollments
         WHERE student_id = $1 AND subject_id = $2
@@ -982,6 +990,13 @@ const removeStudentFromSubject = async (studentId, subjectId) => {
     `;
     try {
         const result = await pool.query(query, [studentId, subjectId]);
+        // Audit log if removal happened
+        if (result.rows[0]) {
+            await pool.query(
+                `INSERT INTO enrollment_audit (student_id, subject_id, action, admin_id) VALUES ($1, $2, 'drop', $3)`,
+                [studentId, subjectId, adminId]
+            );
+        }
         return result.rows[0];
     } catch (error) {
         console.error('Error removing student from subject:', error);
@@ -1151,6 +1166,113 @@ const bulkCreateDegrees = async (degrees) => {
     return { created, skipped, errors };
 };
 
+// Bulk enroll students to a specific subject using roll numbers
+const bulkEnrollStudentsToSubject = async (subjectId, rollnos) => {
+    const results = [];
+    for (const rollno of rollnos) {
+        // Find student_id by roll number
+        const studentRes = await pool.query('SELECT student_id FROM students WHERE roll_number = $1', [rollno]);
+        if (studentRes.rows.length === 0) {
+            results.push({ rollno, status: 'error', error: 'Student not found' });
+            continue;
+        }
+        const studentId = studentRes.rows[0].student_id;
+        try {
+            await pool.query('INSERT INTO enrollments (student_id, subject_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [studentId, subjectId]);
+            results.push({ rollno, status: 'success' });
+        } catch (err) {
+            results.push({ rollno, status: 'error', error: err.message });
+        }
+    }
+    return results;
+};
+
+// Bulk enroll students to multiple subjects using rollno, subject_id pairs
+const bulkEnrollStudentsToMultipleSubjects = async (enrollments) => {
+    const results = [];
+    for (const enr of enrollments) {
+        const { rollno, subject_id } = enr;
+        const studentRes = await pool.query('SELECT student_id FROM students WHERE roll_number = $1', [rollno]);
+        if (studentRes.rows.length === 0) {
+            results.push({ rollno, subject_id, status: 'error', error: 'Student not found' });
+            continue;
+        }
+        const studentId = studentRes.rows[0].student_id;
+        try {
+            await pool.query('INSERT INTO enrollments (student_id, subject_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [studentId, subject_id]);
+            results.push({ rollno, subject_id, status: 'success' });
+        } catch (err) {
+            results.push({ rollno, subject_id, status: 'error', error: err.message });
+        }
+    }
+    return results;
+};
+
+// Bulk enroll all students in a Dept/Year/Section/Sem to all core subjects
+const bulkEnrollCoreSubjects = async ({ department_id, year, section, semester }) => {
+    // 1. Fetch all students in the group
+    const studentsRes = await pool.query(
+        'SELECT student_id FROM students WHERE department_id = $1 AND current_year = $2 AND section = $3',
+        [department_id, year, section]
+    );
+    const students = studentsRes.rows.map(r => r.student_id);
+    // 2. Fetch all core subjects for the group
+    const subjectsRes = await pool.query(
+        'SELECT subject_id FROM subjects WHERE department_id = $1 AND year = $2 AND section = $3 AND semester = $4 AND is_core = true',
+        [department_id, year, section, semester]
+    );
+    const subjects = subjectsRes.rows.map(r => r.subject_id);
+    const enrolled = [], skipped = [], errors = [];
+    for (const student_id of students) {
+        for (const subject_id of subjects) {
+            try {
+                // Check if already enrolled
+                const exists = await pool.query(
+                    'SELECT 1 FROM enrollments WHERE student_id = $1 AND subject_id = $2',
+                    [student_id, subject_id]
+                );
+                if (exists.rows.length > 0) {
+                    skipped.push({ student_id, subject_id, reason: 'already enrolled' });
+                    continue;
+                }
+                await pool.query(
+                    'INSERT INTO enrollments (student_id, subject_id) VALUES ($1, $2)',
+                    [student_id, subject_id]
+                );
+                enrolled.push({ student_id, subject_id, status: 'success' });
+            } catch (err) {
+                errors.push({ student_id, subject_id, error: err.message });
+            }
+        }
+    }
+    return { enrolled, skipped, errors };
+};
+
+// Bulk enroll students manually (from grid UI)
+const bulkEnrollStudentsManual = async (enrollments) => {
+    const enrolled = [], skipped = [], errors = [];
+    for (const { student_id, subject_id } of enrollments) {
+        try {
+            const exists = await pool.query(
+                'SELECT 1 FROM enrollments WHERE student_id = $1 AND subject_id = $2',
+                [student_id, subject_id]
+            );
+            if (exists.rows.length > 0) {
+                skipped.push({ student_id, subject_id, reason: 'already enrolled' });
+                continue;
+            }
+            await pool.query(
+                'INSERT INTO enrollments (student_id, subject_id) VALUES ($1, $2)',
+                [student_id, subject_id]
+            );
+            enrolled.push({ student_id, subject_id, status: 'success' });
+        } catch (err) {
+            errors.push({ student_id, subject_id, error: err.message });
+        }
+    }
+    return { enrolled, skipped, errors };
+};
+
 // Log admin action to audit table
 const logAdminAction = async ({ admin_id, action, entity, entity_id, details }) => {
     const query = `
@@ -1161,6 +1283,138 @@ const logAdminAction = async ({ admin_id, action, entity, entity_id, details }) 
     const values = [admin_id, action, entity, entity_id, details ? JSON.stringify(details) : null];
     const result = await pool.query(query, values);
     return result.rows[0];
+};
+
+// Fetch students by department, year, section (no pagination)
+const getStudentsByFilters = async (department_id, year, section) => {
+    let query = 'SELECT * FROM students WHERE 1=1';
+    const params = [];
+    let idx = 1;
+    if (department_id) {
+        query += ` AND department_id = $${idx++}`;
+        params.push(department_id);
+    }
+    if (year) {
+        query += ` AND current_year = $${idx++}`;
+        params.push(year);
+    }
+    if (section) {
+        query += ` AND section = $${idx++}`;
+        params.push(section);
+    }
+    query += ' ORDER BY roll_number';
+    const result = await pool.query(query, params);
+    return result.rows;
+};
+
+// Fetch subjects by department, year, section, semester (no pagination)
+const getSubjectsByFilters = async (department_id, year, section, semester) => {
+    console.log('[getSubjectsByFilters] Filters:', { department_id, year, section, semester });
+    let query = 'SELECT * FROM subjects WHERE 1=1';
+    const params = [];
+    let idx = 1;
+    if (department_id) {
+        query += ` AND department_id = $${idx++}`;
+        params.push(department_id);
+    }
+    if (year) {
+        query += ` AND year = $${idx++}`;
+        params.push(year);
+    }
+    if (section) {
+        query += ` AND section = $${idx++}`;
+        params.push(section);
+    }
+    if (semester) {
+        query += ` AND semester = $${idx++}`;
+        params.push(semester);
+    }
+    query += ' ORDER BY subject_name';
+    console.log('[getSubjectsByFilters] Final Query:', query);
+    console.log('[getSubjectsByFilters] Params:', params);
+    const result = await pool.query(query, params);
+    return result.rows;
+};
+
+// Fetch enrollment audit/history for a subject or student
+const getEnrollmentAudit = async ({ studentId = null, subjectId = null }) => {
+    let query = `
+        SELECT ea.*, a.name AS admin_name
+        FROM enrollment_audit ea
+        LEFT JOIN admins a ON ea.admin_id = a.admin_id
+        WHERE 1=1
+    `;
+    const params = [];
+    let idx = 1;
+    if (studentId) {
+        query += ` AND ea.student_id = $${idx++}`;
+        params.push(studentId);
+    }
+    if (subjectId) {
+        query += ` AND ea.subject_id = $${idx++}`;
+        params.push(subjectId);
+    }
+    query += ' ORDER BY ea.action_timestamp DESC';
+    const result = await pool.query(query, params);
+    return result.rows;
+};
+
+// --- DEGREE MANAGEMENT ---
+const getAllDegrees = async () => {
+    const query = 'SELECT * FROM degrees ORDER BY name;';
+    try {
+        const result = await pool.query(query);
+        return result.rows;
+    } catch (error) {
+        console.error('Error getting all degrees:', error);
+        throw new Error('Database query failed.');
+    }
+};
+
+const createDegree = async (name) => {
+    const query = `
+        INSERT INTO degrees (name)
+        VALUES ($1)
+        RETURNING degree_id, name;
+    `;
+    try {
+        const result = await pool.query(query, [name]);
+        return result.rows[0];
+    } catch (error) {
+        console.error('Error creating degree:', error);
+        throw new Error('Database insertion failed.');
+    }
+};
+
+const updateDegree = async (degreeId, name) => {
+    const query = `
+        UPDATE degrees
+        SET name = $2, updated_at = CURRENT_TIMESTAMP
+        WHERE degree_id = $1
+        RETURNING degree_id, name;
+    `;
+    try {
+        const result = await pool.query(query, [degreeId, name]);
+        return result.rows[0];
+    } catch (error) {
+        console.error('Error updating degree:', error);
+        throw new Error('Database update failed.');
+    }
+};
+
+const deleteDegree = async (degreeId) => {
+    const query = `
+        DELETE FROM degrees
+        WHERE degree_id = $1
+        RETURNING degree_id, name;
+    `;
+    try {
+        const result = await pool.query(query, [degreeId]);
+        return result.rows[0];
+    } catch (error) {
+        console.error('Error deleting degree:', error);
+        throw new Error('Database deletion failed.');
+    }
 };
 
 module.exports = {
@@ -1206,5 +1460,18 @@ module.exports = {
     bulkCreateSubjects,
     bulkCreateDepartments,
     bulkCreateDegrees,
+    bulkEnrollStudentsToSubject,
+    bulkEnrollStudentsToMultipleSubjects,
+    bulkEnrollCoreSubjects,
+    bulkEnrollStudentsManual,
     logAdminAction,
+
+    getStudentsByFilters,
+    getSubjectsByFilters,
+    getEnrollmentAudit,
+    getAllDegrees,
+    createDegree,
+    updateDegree,
+    deleteDegree,
 };
+

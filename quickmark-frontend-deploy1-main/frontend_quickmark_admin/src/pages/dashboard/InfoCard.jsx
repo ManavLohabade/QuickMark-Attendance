@@ -35,6 +35,10 @@ const cardGradients = {
     gradient: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
     text: '#231123',
   },
+  'Faculty Management': {
+  gradient: 'linear-gradient(135deg, #fceabb 0%, #f8b500 100%)',
+  text: '#231123',
+},
 };
 
 export default function InfoCard({ title, value, navigate, linkTo, IconComponent }) {

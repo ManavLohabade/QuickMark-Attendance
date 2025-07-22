@@ -28,7 +28,7 @@ api.interceptors.response.use(
     (error) => {
         if (error.response?.status === 401) {
             // Only redirect if it's an authentication error, not other 401 errors
-            const errorMessage = error.response?.data?.message || '';
+            const errorMessage = error.response?.data?.message || ''; 
             
             // Check if it's a real auth error (token expired, invalid token, etc.)
             if (errorMessage.includes('token') || errorMessage.includes('unauthorized') || 

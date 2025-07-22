@@ -80,3 +80,13 @@ export const getStudentCalendarAttendance = async (subjectId, studentId, month, 
         throw error;
     }
 };
+
+// Get live count for a session
+export const getSessionLiveCount = async (sessionId) => {
+    try {
+        const response = await api.get(`/attendance/${sessionId}/live-count`);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};

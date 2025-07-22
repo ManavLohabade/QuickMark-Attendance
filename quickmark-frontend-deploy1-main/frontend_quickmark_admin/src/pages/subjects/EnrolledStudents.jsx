@@ -1,7 +1,7 @@
 // src/pages/subjects/EnrolledStudents.jsx
 import React, { useState, useEffect, useMemo, useRef } from "react";
 // --- 1. IMPORT: Add ArrowLeft, Upload, and Printer icons ---
-import { ArrowLeft, Upload, Printer, Filter, Calendar as CalendarIcon } from "lucide-react";
+import { ArrowLeft, Upload, Printer, Filter, Calendar as CalendarIcon, Download, XCircle, History } from "lucide-react";
 import Calendar from "./Calendar.jsx";
 import { studentEnrollmentAPI } from "../../utils/api";
 
@@ -19,6 +19,10 @@ export default function EnrolledStudents({
   const [error, setError] = useState("");
   const fileInputRef = useRef(null);
   const printableContentRef = useRef(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [historyError, setHistoryError] = useState("");
 
   useEffect(() => {
     if (!subject) return;
@@ -101,6 +105,87 @@ export default function EnrolledStudents({
     }, 250);
   };
 
+  // --- CSV EXPORT LOGIC ---
+  const handleExportCSV = async () => {
+    if (!subject?.subject_id) return;
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(
+        `/api/admin/enrollments/${subject.subject_id}/export-csv`,
+        {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (!response.ok) {
+        throw new Error('Failed to export CSV');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `subject_${subject.subject_id}_enrollments.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('Error exporting CSV: ' + err.message);
+    }
+  };
+
+  // --- REMOVE STUDENT FROM SUBJECT ---
+  const handleRemoveStudent = async (student) => {
+    if (!window.confirm(`Are you sure you want to remove ${student.name} (${student.rollNo}) from this subject?`)) return;
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch('/api/admin/students/remove-subject', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ student_id: student.student_id, subject_id: subject.subject_id }),
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Failed to remove student');
+      }
+      // Refresh the enrolled students list
+      setEnrolledStudents(prev => prev.filter(s => s.student_id !== student.student_id));
+      alert(`${student.name} has been removed from this subject.`);
+    } catch (err) {
+      alert('Error removing student: ' + err.message);
+    }
+  };
+
+  // Fetch audit/history for this subject
+  const fetchHistory = async () => {
+    if (!subject?.subject_id) return;
+    setHistoryLoading(true);
+    setHistoryError("");
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`/api/admin/enrollments/audit?subject_id=${subject.subject_id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Failed to fetch history');
+      const data = await response.json();
+      setHistory(data.audit || []);
+    } catch (err) {
+      setHistoryError(err.message);
+      setHistory([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const handleShowHistory = () => {
+    setShowHistory(true);
+    fetchHistory();
+  };
+  const handleCloseHistory = () => setShowHistory(false);
+
   if (!subject) {
     return (
       <div className="text-center p-8">
@@ -166,6 +251,18 @@ export default function EnrolledStudents({
               >
                 <Printer size={16} /> Print
               </button>
+              <button
+                onClick={handleExportCSV}
+                className="flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-semibold hover:bg-gray-50"
+              >
+                <Download size={16} /> Export CSV
+              </button>
+              <button
+                onClick={handleShowHistory}
+                className="flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-semibold hover:bg-gray-50"
+              >
+                <History size={16} /> View History
+              </button>
             </div>
           </div>
 
@@ -219,6 +316,14 @@ export default function EnrolledStudents({
                         >
                           <CalendarIcon size={18} className="text-blue-600" />
                         </button>
+                        <button
+                          type="button"
+                          className="inline-flex items-center justify-center p-2 rounded hover:bg-red-100 ml-2"
+                          title="Remove from Subject"
+                          onClick={e => { e.stopPropagation(); handleRemoveStudent(student); }}
+                        >
+                          <XCircle size={18} className="text-red-600" />
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -233,6 +338,45 @@ export default function EnrolledStudents({
           </div>
         </div>
       </div>
+      {/* Enrollment History Modal/Section */}
+      {showHistory && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-2xl w-full relative">
+            <button onClick={handleCloseHistory} className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-xl">&times;</button>
+            <h3 className="text-xl font-bold mb-4 flex items-center gap-2"><History size={20}/> Enrollment History</h3>
+            {historyLoading ? (
+              <div className="text-center py-8">Loading...</div>
+            ) : historyError ? (
+              <div className="text-center text-red-600 py-8">{historyError}</div>
+            ) : history.length === 0 ? (
+              <div className="text-center text-gray-500 py-8">No enrollment history found for this subject.</div>
+            ) : (
+              <div className="overflow-x-auto max-h-96">
+                <table className="w-full text-sm border">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="p-2 border">Student ID</th>
+                      <th className="p-2 border">Action</th>
+                      <th className="p-2 border">Admin</th>
+                      <th className="p-2 border">Timestamp</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {history.map((entry, i) => (
+                      <tr key={entry.audit_id || i}>
+                        <td className="p-2 border">{entry.student_id}</td>
+                        <td className="p-2 border font-semibold capitalize">{entry.action}</td>
+                        <td className="p-2 border">{entry.admin_name || entry.admin_id || 'Unknown'}</td>
+                        <td className="p-2 border">{new Date(entry.action_timestamp).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }

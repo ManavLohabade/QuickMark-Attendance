@@ -1,11 +1,12 @@
 import React from 'react';
-import { LayoutDashboard, UserCheck, Book, Settings, GanttChartSquare, LogOut } from 'lucide-react';
+import { LayoutDashboard, UserCheck, Book, Settings, GanttChartSquare, LogOut, ListChecks } from 'lucide-react';
 
 // Sidebar navigation items
 const navItems = [
   { name: 'Home', icon: LayoutDashboard, route: '/dashboard' },
   { name: 'Attendance', icon: UserCheck, route: '/mark-attendance' },
   { name: 'Subjects', icon: Book, route: '/subjects' },
+  { name: 'Activity Log', icon: ListChecks, route: '/activity-log' }, // Added Activity Log
   { name: 'Settings', icon: Settings, route: '/settings' },
 ];
 

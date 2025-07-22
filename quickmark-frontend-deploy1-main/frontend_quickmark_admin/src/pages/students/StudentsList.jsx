@@ -4,6 +4,7 @@ import { Filter, Upload, Printer, Calendar as CalendarIcon } from 'lucide-react'
 import Pagination from '../../components/common/Pagination';
 import Calendar from '../subjects/Calendar.jsx';
 import Papa from 'papaparse';
+import { API_BASE_URL } from '../../utils/api';
 
 export default function StudentsList({ 
   students, 
@@ -99,7 +100,7 @@ export default function StudentsList({
                   }
                   try {
                       // TODO: Replace with actual backend bulk-create endpoint
-                      await fetch('https://quickmark-backend-deploy1.onrender.com/api/admin/students/bulk', {
+                      await fetch(`${API_BASE_URL}/admin/students/bulk`, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('adminToken')}` },
                           body: JSON.stringify({ students: results.data })

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { PlusCircle, Edit, Trash2 } from "lucide-react";
+import { API_BASE_URL } from '../../utils/api';
 
 export default function SubjectsManager() {
     const [departments, setDepartments] = useState([]);
@@ -19,8 +20,8 @@ export default function SubjectsManager() {
         try {
             const token = getAdminToken();
             const [deptRes, subjRes] = await Promise.all([
-                axios.get("https://quickmark-backend-deploy1.onrender.com/api/admin/departments", { headers: { Authorization: `Bearer ${token}` } }),
-                axios.get("https://quickmark-backend-deploy1.onrender.com/api/admin/subjects", { headers: { Authorization: `Bearer ${token}` } }),
+                axios.get(`${API_BASE_URL}/admin/departments`, { headers: { Authorization: `Bearer ${token}` } }),
+                axios.get(`${API_BASE_URL}/admin/subjects`, { headers: { Authorization: `Bearer ${token}` } }),
             ]);
             setDepartments(deptRes.data);
             setSubjects(subjRes.data);
@@ -45,7 +46,7 @@ export default function SubjectsManager() {
         try {
             const token = getAdminToken();
             await axios.post(
-                "https://quickmark-backend-deploy1.onrender.com/api/admin/subjects",
+                `${API_BASE_URL}/admin/subjects`,
                 {
                     subject_name: newSubject.subject_name,
                     subject_code: newSubject.subject_code,
@@ -74,7 +75,7 @@ export default function SubjectsManager() {
         try {
             const token = getAdminToken();
             await axios.put(
-                `https://quickmark-backend-deploy1.onrender.com/api/admin/subjects/${editingSubject.subject_id}`,
+                `${API_BASE_URL}/admin/subjects/${editingSubject.subject_id}`,
                 {
                     subject_name: editSubject.subject_name,
                     subject_code: editSubject.subject_code,
@@ -100,7 +101,7 @@ export default function SubjectsManager() {
         try {
             const token = getAdminToken();
             await axios.delete(
-                `https://quickmark-backend-deploy1.onrender.com/api/admin/subjects/${subjectId}`,
+                `${API_BASE_URL}/admin/subjects/${subjectId}`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             fetchData();

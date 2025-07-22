@@ -25,6 +25,23 @@ const findFacultyById = async (facultyId) => {
     }
 };
 
+// Find a faculty by ID with department name (for profile operations)
+const findFacultyWithDepartmentById = async (facultyId) => {
+    const query = `
+        SELECT f.*, d.name AS department_name
+        FROM faculties f
+        LEFT JOIN departments d ON f.department_id = d.department_id
+        WHERE f.faculty_id = $1;
+    `;
+    try {
+        const result = await pool.query(query, [facultyId]);
+        return result.rows[0];
+    } catch (error) {
+        console.error('Error finding faculty with department by ID:', error);
+        throw new Error('Database query failed.');
+    }
+};
+
 // Register a new faculty (used by admin in older context, can be adapted for faculty self-registration)
 const createFaculty = async (name, email, passwordHash, departmentId) => {
     const query = `
@@ -153,5 +170,6 @@ module.exports = {
     updateFacultyPassword,
     getFacultySubjects,
     assignSubjectToFaculty,
-    removeSubjectFromFaculty
+    removeSubjectFromFaculty,
+    findFacultyWithDepartmentById
 };

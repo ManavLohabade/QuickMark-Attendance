@@ -55,10 +55,18 @@ CREATE TABLE public.attendance_sessions (
     qr_sequence_number integer DEFAULT 0,
     qr_expires_at timestamp with time zone,
     attendance_weight integer,
-    CONSTRAINT attendance_sessions_attendance_weight_check CHECK (((attendance_weight >= 1) AND (attendance_weight <= 4)))
+    CONSTRAINT attendance_sessions_attendance_weight_check CHECK (((attendance_weight >= 1) AND (attendance_weight <= 6)))
 );
 
-COMMENT ON COLUMN public.attendance_sessions.attendance_weight IS 'Weight assigned to this attendance session (1-4) by faculty when submitting attendance';
+COMMENT ON COLUMN public.attendance_sessions.attendance_weight IS 'Weight assigned to this attendance session (1-6) by faculty when submitting attendance';
+
+CREATE TABLE IF NOT EXISTS faculty_activity_logs (
+    log_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    faculty_id UUID NOT NULL,
+    action TEXT NOT NULL,
+    details JSONB,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
 
 CREATE TABLE public.departments (
     department_id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -119,6 +127,8 @@ CREATE TABLE public.subjects (
     subject_code character varying(10) NOT NULL,
     CONSTRAINT chk_semester CHECK ((semester = ANY (ARRAY[1, 2])))
 );
+
+ALTER TABLE public.subjects ADD COLUMN IF NOT EXISTS credits integer NOT NULL DEFAULT 3;
 
 CREATE TABLE public.users (
     id serial PRIMARY KEY,
@@ -205,6 +215,16 @@ CREATE TABLE IF NOT EXISTS admin_action_logs (
     entity_id TEXT,
     details JSONB,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table to track enrollment and drop actions (audit log)
+CREATE TABLE IF NOT EXISTS enrollment_audit (
+    audit_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES students(student_id) ON DELETE CASCADE,
+    subject_id UUID NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
+    action VARCHAR(20) NOT NULL, -- 'enroll' or 'drop'
+    admin_id UUID REFERENCES admins(admin_id) ON DELETE SET NULL,
+    action_timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 -- PostgreSQL database dump complete

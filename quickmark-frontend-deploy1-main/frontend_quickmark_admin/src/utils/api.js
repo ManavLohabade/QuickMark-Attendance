@@ -1,5 +1,5 @@
 // API utility for admin frontend
-const API_BASE_URL = 'https://quickmark-backend-deploy1.onrender.com/api';
+export const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL}/api`;
 
 // Helper function to handle API responses
 const handleResponse = async (response) => {
@@ -77,6 +77,7 @@ export const dashboardAPI = {
   getStats: async () => {
     const response = await apiRequest('/admin/dashboard/stats');
     return {
+      degrees: response.degrees || 0,
       departments: response.departments || 0,
       faculties: response.faculties || 0,
       students: response.students || 0,

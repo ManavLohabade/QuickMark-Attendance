@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { PlusCircle, Edit, Trash2, ChevronLeft, ChevronRight, Search, Filter } from 'lucide-react'; // Import Search and Filter icons
+import { API_BASE_URL } from '../../utils/api';
 
 const AdminDepartmentsPage = () => {
     const [departments, setDepartments] = useState([]);
@@ -34,7 +35,7 @@ const AdminDepartmentsPage = () => {
                 setLoading(false);
                 return;
             }
-            const response = await axios.get(`https://quickmark-backend-deploy1.onrender.com/api/admin/departments?page=${page}&limit=${limit}&searchTerm=${search}`, { // Pass page/limit/searchTerm
+            const response = await axios.get(`${API_BASE_URL}/admin/departments?page=${page}&limit=${limit}&searchTerm=${search}`, { // Pass page/limit/searchTerm
                 headers: {
                     Authorization: `Bearer ${token}`
                 }
@@ -99,7 +100,7 @@ const AdminDepartmentsPage = () => {
         }
         try {
             const token = getAdminToken();
-            const response = await axios.post('https://quickmark-backend-deploy1.onrender.com/api/admin/departments', {
+            const response = await axios.post(`${API_BASE_URL}/admin/departments`, {
                 name: newDepartmentName
             }, {
                 headers: {
@@ -125,7 +126,7 @@ const AdminDepartmentsPage = () => {
         }
         try {
             const token = getAdminToken();
-            const response = await axios.put(`https://quickmark-backend-deploy1.onrender.com/api/admin/departments/${editingDepartment.department_id}`, {
+            const response = await axios.put(`${API_BASE_URL}/admin/departments/${editingDepartment.department_id}`, {
                 name: editDepartmentName
             }, {
                 headers: {
@@ -150,7 +151,7 @@ const AdminDepartmentsPage = () => {
         }
         try {
             const token = getAdminToken();
-            const response = await axios.delete(`https://quickmark-backend-deploy1.onrender.com/api/admin/departments/${departmentId}`, {
+            const response = await axios.delete(`${API_BASE_URL}/admin/departments/${departmentId}`, {
                 headers: {
                     Authorization: `Bearer ${token}`
                 }

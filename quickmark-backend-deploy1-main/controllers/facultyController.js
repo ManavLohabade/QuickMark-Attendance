@@ -5,17 +5,19 @@ const { hashPassword, comparePassword } = require('../utils/passwordHasher');
 const { generateToken } = require('../config/jwt'); // Use the proper JWT import
 const subjectModel = require('../models/subjectModel');
 const adminModel = require('../models/adminModel');
+const { logFacultyActivity } = require('../utils/activityLogger');
 
 // Gets the profile of the authenticated faculty.
 const getMyProfile = async (req, res) => {
     const facultyId = req.user.id; // From authMiddleware
     try {
-        const faculty = await userModel.findFacultyById(facultyId);
-        if (!faculty) {
+        // Join with departments to get department name
+        const result = await userModel.findFacultyWithDepartmentById(facultyId);
+        if (!result) {
             return res.status(404).json({ message: 'Faculty profile not found.' });
         }
         // Exclude sensitive information like password_hash from the response
-        const { password_hash, ...facultyWithoutHash } = faculty;
+        const { password_hash, ...facultyWithoutHash } = result;
         res.status(200).json(facultyWithoutHash);
     } catch (error) {
         console.error('Error getting faculty profile:', error);
@@ -32,6 +34,8 @@ const updateMyProfile = async (req, res) => {
         if (!updatedFaculty) {
             return res.status(400).json({ message: 'No valid fields provided for update or profile not found.' });
         }
+        // Log the profile update
+        await logFacultyActivity(facultyId, 'update_profile', updates);
         res.status(200).json({
             message: 'Profile updated successfully!',
             faculty: updatedFaculty
@@ -60,6 +64,8 @@ const changeMyPassword = async (req, res) => {
         }
         const newHashedPassword = await hashPassword(new_password);
         await userModel.updateFacultyPassword(facultyId, newHashedPassword);
+        // Log the password change
+        await logFacultyActivity(facultyId, 'change_password', {});
         res.status(200).json({ message: 'Password updated successfully!' });
     } catch (error) {
         console.error('Error changing password:', error);
@@ -98,6 +104,9 @@ const loginFaculty = async (req, res) => {
             email: faculty.email, 
             role: 'faculty' 
         });
+
+        // Log the login
+        await logFacultyActivity(faculty.faculty_id, 'login', { email: faculty.email });
 
         // Send token and faculty details (excluding password hash)
         // Ensure you return all necessary faculty details for the frontend
@@ -139,11 +148,21 @@ const getSubjectStudents = async (req, res) => {
     }
 };
 
+const getMyActivityLogs = async (req, res) => {
+    const facultyId = req.user.id;
+    const result = await pool.query(
+        'SELECT * FROM faculty_activity_logs WHERE faculty_id = $1 ORDER BY created_at DESC LIMIT 100',
+        [facultyId]
+    );
+    res.json(result.rows);
+};
+
 // Export all functions
 module.exports = {
     getMyProfile,
     updateMyProfile,
     changeMyPassword,
     loginFaculty, // Make sure this is exported!
-    getSubjectStudents
+    getSubjectStudents,
+    getMyActivityLogs
 };

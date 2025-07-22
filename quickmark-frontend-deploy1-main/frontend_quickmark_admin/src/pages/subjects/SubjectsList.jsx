@@ -4,6 +4,7 @@ import { List, LayoutGrid, Filter, X } from "lucide-react";
 import Pagination from "../../components/common/Pagination";
 import axios from "axios";
 import Papa from 'papaparse';
+import { API_BASE_URL } from '../../utils/api';
 // import AddEditSubjectModal from "./AddEditSubjectModal.jsx";
 
 // The AddEditSubjectModal component remains unchanged
@@ -312,7 +313,7 @@ export default function SubjectsList({
           }
           try {
             // TODO: Replace with actual backend bulk-create endpoint
-            await fetch('https://quickmark-backend-deploy1.onrender.com/api/admin/subjects/bulk', {
+            await fetch(`${API_BASE_URL}/admin/subjects/bulk`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('adminToken')}` },
               body: JSON.stringify({ subjects: results.data })
