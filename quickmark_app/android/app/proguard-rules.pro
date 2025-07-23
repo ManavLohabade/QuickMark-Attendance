@@ -68,3 +68,52 @@
 -keepclasseswithmembernames,includedescriptorclasses class * {
     native <methods>;
 }
+
+# QuickMark App specific rules to fix loading screen after login
+-keep class com.example.quickmark_app.** { *; }
+
+# Keep all Bloc/Cubit classes and events/states
+-keep class **.*Bloc { *; }
+-keep class **.*Cubit { *; }
+-keep class **.*Event { *; }
+-keep class **.*State { *; }
+-keep class **.*Repository { *; }
+-keep class **.*DataSource { *; }
+
+# Keep model classes that might be used for JSON serialization
+-keep class **.data.models.** { *; }
+-keep class **.domain.entities.** { *; }
+
+# Keep all classes with fromJson/toJson methods
+-keepclassmembers class * {
+    public static ** fromJson(java.lang.Object);
+    public ** toJson();
+    public static ** fromMap(java.util.Map);
+    public java.util.Map toMap();
+}
+
+# Keep SharedPreferences related classes
+-keep class androidx.preference.** { *; }
+-keep class android.content.SharedPreferences** { *; }
+
+# Keep HTTP/Network classes
+-keep class java.net.** { *; }
+-keep class org.apache.http.** { *; }
+-keep class io.flutter.plugins.connectivity.** { *; }
+
+# Keep all Flutter plugin registration classes
+-keep class io.flutter.plugins.** { *; }
+-keep class io.flutter.plugin.common.** { *; }
+
+# Keep secure storage related classes
+-keep class io.flutter.plugins.flutter_secure_storage.** { *; }
+
+# Additional reflection safety
+-keepclassmembers class * {
+    @com.google.gson.annotations.SerializedName <fields>;
+}
+
+# Keep all constructors
+-keepclassmembers class * {
+    <init>(...);
+}
