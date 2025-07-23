@@ -241,7 +241,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen>
 
   Future<void> _loadTFLiteModel() async {
     try {
-      _interpreter = await Interpreter.fromAsset('mobilefacenet.tflite');
+      _interpreter = await Interpreter.fromAsset('assets/mobilefacenet.tflite');
       setState(() {
         _isModelLoaded = true;
       });
