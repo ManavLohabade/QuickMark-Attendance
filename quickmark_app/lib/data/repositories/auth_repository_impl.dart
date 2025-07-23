@@ -97,6 +97,36 @@ class AuthRepositoryImpl implements AuthRepository {
         throw Exception('No authentication token found');
       }
 
+      // Check if we have local user data first
+      final localUserData = _localDataSource.getUserData();
+      if (localUserData != null) {
+        // Check if we have local face embedding
+        final hasLocalEmbedding = _localDataSource.hasFaceEmbedding();
+
+        // If we have local embedding, mark face as registered locally
+        if (hasLocalEmbedding && localUserData['is_face_registered'] != true) {
+          localUserData['is_face_registered'] = true;
+          await _localDataSource.saveUserData(localUserData);
+        }
+
+        // Create user from local data
+        final localUser = StudentModel(
+          id: localUserData['id'] ?? '',
+          name: localUserData['name'] ?? '',
+          email: localUserData['email'] ?? '',
+          rollNumber: localUserData['roll_number'] ?? '',
+          department: localUserData['department'] ?? '',
+          section: localUserData['section'] ?? '',
+          photoUrl: localUserData['photo_url'],
+          isFaceRegistered:
+              hasLocalEmbedding ||
+              (localUserData['is_face_registered'] == true),
+        );
+
+        return localUser;
+      }
+
+      // Fallback to server if no local data
       final response = await _remoteDataSource.getCurrentStudent(token: token);
       final studentModel = StudentModel.fromJson(response);
 
@@ -128,7 +158,7 @@ class AuthRepositoryImpl implements AuthRepository {
       }
 
       final response = await _remoteDataSource.registerFace(
-        studentId: studentId,
+        studentId: studentId.toString(),
         faceImageUrl: faceImageUrl,
       );
 
@@ -154,7 +184,7 @@ class AuthRepositoryImpl implements AuthRepository {
       }
 
       final response = await _remoteDataSource.uploadPhoto(
-        studentId: studentId,
+        studentId: studentId.toString(),
         filePath: filePath,
         token: token,
       );
@@ -181,7 +211,7 @@ class AuthRepositoryImpl implements AuthRepository {
       }
 
       final response = await _remoteDataSource.getPhotoHistory(
-        studentId: studentId,
+        studentId: studentId.toString(),
         token: token,
       );
 

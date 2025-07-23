@@ -1,15 +1,19 @@
 import 'dart:typed_data';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
+import 'package:image_picker/image_picker.dart';
 import '../../bloc/face/face_bloc.dart';
-import '../../bloc/face/face_event.dart';
 import '../../bloc/face/face_state.dart';
+import '../../bloc/auth/auth_bloc.dart';
+import '../../bloc/auth/auth_event.dart' as auth_events;
 import '../../widgets/app_error_widget.dart';
 import '../../widgets/face_detection_overlay.dart';
+import '../../../main.dart';
 
 class FaceRegistrationScreen extends StatefulWidget {
   static const routeName = '/face-registration';
@@ -28,14 +32,13 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen>
   bool _isDetecting = false;
   bool _isFaceDetected = false;
   List<Face> _detectedFaces = [];
-  CameraImage? _currentCameraImage; // Store current camera image for processing
 
   // ML Kit
   late FaceDetector _faceDetector;
 
   // TFLite
   Interpreter? _interpreter;
-  bool _isModelLoaded = false;
+  bool _modelsLoaded = false;
 
   // Face registration state
   bool _isProcessing = false;
@@ -158,22 +161,100 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen>
     }
   }
 
+  // Working methods from home_screen.dart
+  Future<List<double>?> _processImage(XFile imageFile) async {
+    // 1. Load image using image package
+    final bytes = await imageFile.readAsBytes();
+    final img.Image? original = img.decodeImage(bytes);
+    if (original == null) return null;
+    // 2. Detect face
+    final inputImage = InputImage.fromFilePath(imageFile.path);
+    final faces = await _faceDetector.processImage(inputImage);
+    if (faces.isEmpty) return null;
+    final face = faces.first;
+    final rect = face.boundingBox;
+    // 3. Crop and resize face region to 112x112 for MobileFaceNet
+    final left = rect.left.round().clamp(0, original.width - 1);
+    final top = rect.top.round().clamp(0, original.height - 1);
+    final right = rect.right.round().clamp(0, original.width);
+    final bottom = rect.bottom.round().clamp(0, original.height);
+    final faceCrop = img.copyCrop(
+      original,
+      x: left,
+      y: top,
+      width: right - left,
+      height: bottom - top,
+    );
+    final faceResized = img.copyResize(faceCrop, width: 112, height: 112);
+    // 4. Normalize to [-1, 1] and convert to Float32List
+    final imageAsFloat32List = _imageToFloat32List(faceResized);
+    // 5. Run inference
+    if (_interpreter == null) return null;
+
+    // Reshape the flat Float32List into a 4D list [1, 112, 112, 3]
+    // to match the model's expected input shape.
+    List<List<List<List<double>>>> inputTensorValue = List.generate(
+      1, // Batch size
+      (b) => List.generate(
+        112, // Height
+        (y) => List.generate(
+          112, // Width
+          (x) => List.generate(3, (c) {
+            // Channels (R,G,B)
+            int index = (y * 112 * 3) + (x * 3) + c;
+            return imageAsFloat32List[index];
+          }),
+        ),
+      ),
+    );
+
+    var output = List.filled(1 * 192, 0.0).reshape([1, 192]);
+    _interpreter!.run(inputTensorValue, output); // Pass the 4D list
+    // 6. Return embedding as List<double>
+    return List<double>.from(output[0]);
+  }
+
+  Float32List _imageToFloat32List(img.Image image) {
+    final Float32List input = Float32List(1 * 112 * 112 * 3);
+    int index = 0;
+    for (int y = 0; y < 112; y++) {
+      for (int x = 0; x < 112; x++) {
+        final pixel = image.getPixel(x, y);
+        input[index++] = (pixel.r - 127.5) / 127.5;
+        input[index++] = (pixel.g - 127.5) / 127.5;
+        input[index++] = (pixel.b - 127.5) / 127.5;
+      }
+    }
+    return input;
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initializeCamera();
-    _initializeFaceDetector();
-    _loadTFLiteModel();
+    _loadModels();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _stopCameraStream();
     _cameraController?.dispose();
     _faceDetector.close();
     _interpreter?.close();
     super.dispose();
+  }
+
+  Future<void> _stopCameraStream() async {
+    try {
+      // Stop image stream first to prevent buffer access issues
+      if (_cameraController != null && _cameraController!.value.isInitialized) {
+        await _cameraController!.stopImageStream();
+      }
+    } catch (e) {
+      print('Error stopping image stream during dispose: $e');
+    }
   }
 
   @override
@@ -226,54 +307,80 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen>
     }
   }
 
-  void _initializeFaceDetector() {
-    _faceDetector = FaceDetector(
-      options: FaceDetectorOptions(
-        enableClassification: false,
-        enableLandmarks: true,
-        enableContours: true,
-        enableTracking: false,
-        minFaceSize: 0.1,
-        performanceMode: FaceDetectorMode.accurate,
-      ),
-    );
-  }
-
-  Future<void> _loadTFLiteModel() async {
+  Future<void> _loadModels() async {
     try {
-      _interpreter = await Interpreter.fromAsset('assets/mobilefacenet.tflite');
+      // Load ML Kit face detector
+      _faceDetector = FaceDetector(
+        options: FaceDetectorOptions(
+          enableContours: false,
+          enableLandmarks: false,
+          performanceMode: FaceDetectorMode.accurate,
+        ),
+      );
+      // Load MobileFaceNet TFLite model
+      final interpreter = await Interpreter.fromAsset(
+        'assets/mobilefacenet.tflite',
+      );
       setState(() {
-        _isModelLoaded = true;
+        _interpreter = interpreter;
+        _modelsLoaded = true;
       });
     } catch (e) {
+      print('Error loading models: $e');
       setState(() {
-        _errorMessage = 'Failed to load face recognition model: $e';
+        _errorMessage = 'Failed to load face recognition models: $e';
       });
     }
   }
 
   Future<void> _processCameraImage(CameraImage cameraImage) async {
-    if (_isDetecting || !_isModelLoaded) return;
+    if (_isDetecting || !_modelsLoaded || !mounted) return;
 
     _isDetecting = true;
-    _currentCameraImage = cameraImage; // Store for face processing
 
     try {
+      // Additional safety check for disposed controller
+      if (_cameraController == null ||
+          !_cameraController!.value.isInitialized) {
+        return;
+      }
+
       final inputImage = _convertCameraImageToInputImage(cameraImage);
       final faces = await _faceDetector.processImage(inputImage);
 
-      setState(() {
-        _detectedFaces = faces;
-        _isFaceDetected = faces.isNotEmpty;
-      });
+      if (mounted) {
+        setState(() {
+          _detectedFaces = faces;
+          _isFaceDetected = faces.isNotEmpty;
+        });
+      }
     } catch (e) {
       print('Error processing camera image: $e');
+      // Stop image stream if there's a persistent error
+      if (mounted &&
+          _cameraController != null &&
+          _cameraController!.value.isInitialized) {
+        try {
+          await _cameraController!.stopImageStream();
+        } catch (stopError) {
+          print('Error stopping image stream: $stopError');
+        }
+      }
     } finally {
-      _isDetecting = false;
+      if (mounted) {
+        _isDetecting = false;
+      }
     }
   }
 
   InputImage _convertCameraImageToInputImage(CameraImage cameraImage) {
+    // Safety check for controller and mounted state
+    if (!mounted ||
+        _cameraController == null ||
+        !_cameraController!.value.isInitialized) {
+      throw Exception('Camera controller is not available');
+    }
+
     final allBytes = cameraImage.planes
         .map((plane) => plane.bytes)
         .expand((bytes) => bytes)
@@ -308,8 +415,15 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen>
     if (!_isFaceDetected ||
         _detectedFaces.isEmpty ||
         _isProcessing ||
-        _currentCameraImage == null ||
-        _interpreter == null) {
+        !_modelsLoaded) {
+      return;
+    }
+
+    if (!_modelsLoaded) {
+      setState(() {
+        _errorMessage = 'Models not loaded yet.';
+        _isProcessing = false;
+      });
       return;
     }
 
@@ -318,26 +432,48 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen>
     });
 
     try {
-      // Use the first detected face
-      final Face face = _detectedFaces.first;
+      // Capture the image file first
+      final XFile imageFile = await _cameraController!.takePicture();
 
-      // Generate face embedding using our new processing logic
-      final Float32List? embedding = getFaceEmbedding(
-        _currentCameraImage!,
-        face,
-        _interpreter!,
-      );
+      // Use the working _processImage method from home_screen.dart
+      final List<double>? embedding = await _processImage(imageFile);
 
-      if (embedding != null) {
-        // For now, we'll still capture the image file for the UI/storage
-        final XFile imageFile = await _cameraController!.takePicture();
+      if (embedding != null && mounted) {
+        // Convert embedding to JSON string for storage
+        final String embeddingJson = jsonEncode(embedding);
 
-        // Check if the widget is still mounted before using context
-        if (mounted) {
-          // Register face using FaceBloc - you might want to modify FaceBloc to accept embeddings
-          context.read<FaceBloc>().add(
-            RegisterFaceEvent(faceImageUrl: imageFile.path),
-          );
+        // Save embedding locally using a custom method that we'll add
+        final success = await _saveFaceEmbeddingLocally(embeddingJson);
+
+        if (success) {
+          // Update local user data to mark face as registered
+          await _updateLocalFaceRegistrationStatus(true);
+
+          // Show success message
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Face registered successfully!'),
+                backgroundColor: const Color(0xFF50E3C2),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            );
+
+            // Refresh auth status to update face registration flag
+            context.read<AuthBloc>().add(
+              const auth_events.CheckAuthStatusEvent(),
+            );
+
+            Navigator.pop(context);
+          }
+        } else {
+          setState(() {
+            _errorMessage = 'Failed to save face data locally';
+            _isProcessing = false;
+          });
         }
 
         print(
@@ -345,7 +481,8 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen>
         );
       } else {
         setState(() {
-          _errorMessage = 'Failed to generate face embedding';
+          _errorMessage =
+              'Failed to generate face embedding - no face detected in captured image';
           _isProcessing = false;
         });
       }
@@ -357,12 +494,52 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen>
     }
   }
 
+  /// Save face embedding locally using SharedPreferences
+  Future<bool> _saveFaceEmbeddingLocally(String embeddingJson) async {
+    try {
+      // Access the local data source through the MyApp widget
+      final localDataSource = context
+          .findAncestorWidgetOfExactType<MyApp>()
+          ?.localDataSource;
+      if (localDataSource == null) return false;
+
+      return await localDataSource.saveFaceEmbedding(embeddingJson);
+    } catch (e) {
+      print('Error saving face embedding locally: $e');
+      return false;
+    }
+  }
+
+  /// Update local user data to mark face as registered
+  Future<bool> _updateLocalFaceRegistrationStatus(bool isRegistered) async {
+    try {
+      // Access the local data source through the MyApp widget
+      final localDataSource = context
+          .findAncestorWidgetOfExactType<MyApp>()
+          ?.localDataSource;
+      if (localDataSource == null) return false;
+
+      // Get current user data
+      final userData = localDataSource.getUserData();
+      if (userData == null) return false;
+
+      // Update the face registration status
+      userData['is_face_registered'] = isRegistered;
+
+      // Save the updated user data
+      return await localDataSource.saveUserData(userData);
+    } catch (e) {
+      print('Error updating local face registration status: $e');
+      return false;
+    }
+  }
+
   void _retryInitialization() {
     setState(() {
       _errorMessage = null;
     });
     _initializeCamera();
-    _loadTFLiteModel();
+    _loadModels();
   }
 
   @override
@@ -391,21 +568,9 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen>
       ),
       body: BlocConsumer<FaceBloc, FaceState>(
         listener: (context, state) {
-          if (state is FaceRegistered) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: const Color(
-                  0xFF50E3C2,
-                ), // accentColor from design.json
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            );
-            Navigator.pop(context);
-          } else if (state is FaceError) {
+          // We're now handling face registration locally, so this listener
+          // is mainly for potential error states from other face operations
+          if (state is FaceError) {
             setState(() {
               _errorMessage = state.message;
               _isProcessing = false;
@@ -417,7 +582,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen>
             return _buildErrorView();
           }
 
-          if (!_isCameraInitialized || !_isModelLoaded) {
+          if (!_isCameraInitialized || !_modelsLoaded) {
             return _buildLoadingView();
           }
 

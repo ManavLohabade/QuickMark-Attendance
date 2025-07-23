@@ -98,7 +98,7 @@ class RemoteDataSource {
   /// 3. POST /:id/face
   /// Registers or updates a student's face data
   Future<Map<String, dynamic>> registerFace({
-    required int studentId,
+    required String studentId,
     required String faceImageUrl,
   }) async {
     try {
@@ -128,7 +128,7 @@ class RemoteDataSource {
   /// 4. POST /students/:id/photo
   /// Uploads a photo for a student
   Future<Map<String, dynamic>> uploadPhoto({
-    required int studentId,
+    required String studentId,
     required String filePath,
     required String token,
   }) async {
@@ -179,7 +179,7 @@ class RemoteDataSource {
   /// 5. GET /students/:id/photo-history
   /// Retrieves the photo history for a student
   Future<Map<String, dynamic>> getPhotoHistory({
-    required int studentId,
+    required String studentId,
     required String token,
   }) async {
     try {
