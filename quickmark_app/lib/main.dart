@@ -89,6 +89,7 @@ class MyApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
+        debugShowCheckedModeBanner: false,
         title: 'QuickMark',
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
