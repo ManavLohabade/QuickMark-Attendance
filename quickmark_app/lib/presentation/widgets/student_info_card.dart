@@ -90,8 +90,8 @@ class StudentInfoCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: _buildInfoItem(
-                    'Course',
-                    user.course ?? 'N/A',
+                    'Department',
+                    user.department ?? 'N/A',
                     Icons.school,
                   ),
                 ),
@@ -118,9 +118,9 @@ class StudentInfoCard extends StatelessWidget {
                 const SizedBox(width: 16),
                 Expanded(
                   child: _buildInfoItem(
-                    'Semester',
-                    user.semester?.toString() ?? 'N/A',
-                    Icons.book,
+                    'Email',
+                    user.email ?? 'N/A',
+                    Icons.email,
                   ),
                 ),
               ],
