@@ -14,6 +14,8 @@ export default function CoreEnrollments({ departments }) {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1); // 1: group select, 2: card select, 3: view
   const [selectedCard, setSelectedCard] = useState(null); // 'students', 'subjects', 'both'
+  const [studentSearch, setStudentSearch] = useState('');
+  const [toast, setToast] = useState('');
 
   const yearOptions = [1, 2, 3, 4];
   const sectionOptions = ['A', 'B', 'C'];
@@ -27,11 +29,11 @@ export default function CoreEnrollments({ departments }) {
     console.log('[handleGo] Filters:', { departmentId, year, section, semester });
     try {
       const [subjectsRes, studentsRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/api/admin/subjects`, {
+        axios.get(`${API_BASE_URL}/admin/subjects`, {
           params: { department_id: departmentId, year, section, semester },
           headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` }
         }),
-        axios.get(`${API_BASE_URL}/api/admin/students`, {
+        axios.get(`${API_BASE_URL}/admin/students`, {
           params: { department_id: departmentId, year, section },
           headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` }
         })
@@ -104,12 +106,14 @@ export default function CoreEnrollments({ departments }) {
       });
     });
     try {
-      const res = await axios.post(`${API_BASE_URL}/api/admin/enrollments/bulk/manual`, { enrollments }, {
+      const res = await axios.post(`${API_BASE_URL}/admin/enrollments/bulk/manual`, { enrollments }, {
         headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` }
       });
       setResult(res.data);
+      setToast('Enrollments successful!');
     } catch (err) {
       setResult({ errors: [{ error: err.response?.data?.message || err.message }] });
+      setToast('Failed to enroll: ' + (err.response?.data?.message || err.message));
     }
     setLoading(false);
   };
@@ -128,11 +132,30 @@ export default function CoreEnrollments({ departments }) {
     setSubjects([]);
     setEnrollGrid({});
     setResult(null);
+    setStudentSearch('');
   };
+
+  // Student search/filter
+  const filteredStudents = useMemo(() => {
+    const search = studentSearch.toLowerCase();
+    return students.filter(s =>
+      s.name.toLowerCase().includes(search) ||
+      (s.roll_number || '').toLowerCase().includes(search)
+    );
+  }, [students, studentSearch]);
+
+  // Toast auto-dismiss
+  React.useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(''), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <h2 className="text-3xl font-bold mb-6">Enrollments</h2>
+      {/* Step 1: Filter selection */}
       {step === 1 && (
         <form onSubmit={handleGo} className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-6 rounded-xl shadow">
           <div>
@@ -178,6 +201,7 @@ export default function CoreEnrollments({ departments }) {
           </div>
         </form>
       )}
+      {/* Step 2: Card navigation */}
       {step === 2 && (
         <>
           <div className="mb-4 flex justify-end">
@@ -199,45 +223,49 @@ export default function CoreEnrollments({ departments }) {
           </div>
         </>
       )}
-      {step === 3 && selectedCard === 'students' && (
-        <div className="mt-8 bg-white rounded-xl shadow p-6">
-          <div className="mb-4">
-            <button className="text-blue-600 underline" onClick={() => setStep(2)}>← Back to Cards</button>
-          </div>
-          <h3 className="text-xl font-semibold mb-4">Students</h3>
-          <ul className="list-disc ml-6">
-            {students.map(stu => (
-              <li key={stu.student_id}>{stu.name} <span className="text-xs text-gray-500">({stu.roll_number})</span></li>
-            ))}
-          </ul>
-          <button className="mt-6 bg-blue-600 text-white px-4 py-2 rounded" onClick={() => setStep(2)}>Back</button>
-        </div>
-      )}
-      {step === 3 && selectedCard === 'subjects' && (
-        <div className="mt-8 bg-white rounded-xl shadow p-6">
-          <div className="mb-4">
-            <button className="text-blue-600 underline" onClick={() => setStep(2)}>← Back to Cards</button>
-          </div>
-          <h3 className="text-xl font-semibold mb-4">Subjects</h3>
-          <ul className="list-disc ml-6">
-            {subjects.map(sub => (
-              <li key={sub.subject_id}>{sub.subject_name} <span className="text-xs text-gray-500">({sub.subject_code})</span></li>
-            ))}
-          </ul>
-          <button className="mt-6 bg-blue-600 text-white px-4 py-2 rounded" onClick={() => setStep(2)}>Back</button>
-        </div>
-      )}
+      {/* Step 3: Manual Enrollment Grid */}
       {step === 3 && selectedCard === 'both' && (
         <>
           <div className="mb-4 flex gap-4">
             <button className="text-blue-600 underline" onClick={() => setStep(2)}>← Back to Cards</button>
             <button className="text-blue-600 underline" onClick={handleBackToFilter}>← Back to Filter</button>
           </div>
-          <div className="font-semibold">Selected Enrollments: {selectedCount}</div>
-          <button className="bg-blue-600 text-white px-6 py-2 rounded shadow" onClick={handleEnroll} disabled={loading}>
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-blue-50 rounded-xl p-4 text-center shadow">
+              <div className="text-2xl font-bold text-blue-700">{students.length}</div>
+              <div className="text-gray-600">Total Students</div>
+            </div>
+            <div className="bg-blue-50 rounded-xl p-4 text-center shadow">
+              <div className="text-2xl font-bold text-blue-700">{subjects.length}</div>
+              <div className="text-gray-600">Total Subjects</div>
+            </div>
+            <div className="bg-blue-50 rounded-xl p-4 text-center shadow">
+              <div className="text-2xl font-bold text-blue-700">{selectedCount}</div>
+              <div className="text-gray-600">Selected Enrollments</div>
+            </div>
+          </div>
+          {/* Student Search */}
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="Search students by name or roll number..."
+              value={studentSearch}
+              onChange={e => setStudentSearch(e.target.value)}
+              className="border px-3 py-2 rounded w-full md:w-1/2 shadow-sm focus:ring-2 focus:ring-blue-400"
+            />
+          </div>
+          <button className="bg-blue-600 text-white px-6 py-2 rounded shadow hover:bg-blue-700 focus:ring-2 focus:ring-blue-400 transition-all duration-150" onClick={handleEnroll} disabled={loading}>
             {loading ? 'Enrolling...' : 'Enroll Selected'}
           </button>
-          <div className="overflow-x-auto bg-white rounded-xl shadow p-4">
+          {/* Toast/Snackbar */}
+          {toast && (
+            <div className="fixed bottom-6 right-6 px-4 py-2 rounded shadow-lg z-50 bg-blue-600 text-white animate-fade-in">
+              {toast}
+            </div>
+          )}
+          {/* Enrollment Grid */}
+          <div className="overflow-x-auto bg-white rounded-xl shadow p-4 mt-4">
             <table className="min-w-full border text-sm">
               <thead className="sticky top-0 bg-gray-100 z-10">
                 <tr>
@@ -257,8 +285,8 @@ export default function CoreEnrollments({ departments }) {
                 </tr>
               </thead>
               <tbody>
-                {students.map(stu => (
-                  <tr key={stu.student_id} className="hover:bg-gray-50">
+                {filteredStudents.map(stu => (
+                  <tr key={stu.student_id} className="hover:bg-blue-50">
                     <td className="border px-2 py-1 font-medium">{stu.name} <span className="text-xs text-gray-500">({stu.roll_number})</span></td>
                     <td className="border px-2 py-1 text-center">
                       <input type="checkbox" checked={Object.values(enrollGrid[stu.student_id] || {}).every(Boolean)}

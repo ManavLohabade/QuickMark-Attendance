@@ -110,13 +110,10 @@ export default function EnrolledStudents({
     if (!subject?.subject_id) return;
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(
-        `/api/admin/enrollments/${subject.subject_id}/export-csv`,
-        {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const response = await fetch(`${API_BASE_URL}/enrollments/${subject.subject_id}/export-csv`, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok) {
         throw new Error('Failed to export CSV');
       }
@@ -139,7 +136,7 @@ export default function EnrolledStudents({
     if (!window.confirm(`Are you sure you want to remove ${student.name} (${student.rollNo}) from this subject?`)) return;
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('/api/admin/students/remove-subject', {
+      const response = await fetch(`${API_BASE_URL}/students/remove-subject`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -166,7 +163,7 @@ export default function EnrolledStudents({
     setHistoryError("");
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`/api/admin/enrollments/audit?subject_id=${subject.subject_id}`, {
+      const response = await fetch(`${API_BASE_URL}/enrollments/audit?subject_id=${subject.subject_id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error('Failed to fetch history');

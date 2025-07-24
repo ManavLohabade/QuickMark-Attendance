@@ -65,7 +65,7 @@ const FilterDropdown = ({ subjects, activeFilters, onFilterChange, onClear, onCl
 
 
 // --- Main Subjects Component ---
-const Subjects = ({ subjects, onSelectSubject }) => {
+const Subjects = ({ subjects, onSelectSubject, subjectsError }) => {
     // ✨ 1. Add state for the search term
     const [searchTerm, setSearchTerm] = useState('');
     const [showFilters, setShowFilters] = useState(false);
@@ -97,6 +97,15 @@ const Subjects = ({ subjects, onSelectSubject }) => {
             return matchesSearch && matchesFilters;
         });
     }, [subjects, filters, searchTerm]);
+
+    if (subjectsError) {
+        return (
+            <div className="flex flex-col items-center justify-center h-64">
+                <div className="text-red-600 text-lg font-semibold mb-2">{subjectsError}</div>
+                <div className="text-gray-500">Try refreshing the page or contact your administrator.</div>
+            </div>
+        );
+    }
 
     return (
         <div className="w-full max-w-6xl mx-auto">

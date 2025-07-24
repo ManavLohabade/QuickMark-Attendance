@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Filter, Upload, Printer, Calendar as CalendarIcon } from 'lucide-react';
 import Pagination from '../../components/common/Pagination';
-import Calendar from '../subjects/Calendar.jsx';
+import StudentAttendanceCalendarModel from '../../components/models/StudentAttendanceCalendarModel';
 import Papa from 'papaparse';
 import { API_BASE_URL } from '../../utils/api';
 
@@ -132,10 +132,10 @@ export default function StudentsList({
     <div className="bg-white rounded-lg shadow-md">
       {isCalendarOpen && selectedStudent && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
-          <Calendar
-            subject={null}
-            student={selectedStudent}
-            onBack={handleCloseCalendar}
+          <StudentAttendanceCalendarModel
+            studentId={selectedStudent.student_id}
+            studentName={selectedStudent.name}
+            onClose={handleCloseCalendar}
           />
         </div>
       )}

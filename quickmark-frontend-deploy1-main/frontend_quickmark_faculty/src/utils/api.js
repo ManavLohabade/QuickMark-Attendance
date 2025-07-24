@@ -1,8 +1,11 @@
 import axios from 'axios';
 
+// Get API URL from environment variable or fallback to default
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3700/api';
+
 // Create axios instance with base configuration
 export const api = axios.create({
-    baseURL: 'https://quickmark-backend-deploy1.onrender.com/api',
+    baseURL: API_BASE_URL,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -15,17 +18,38 @@ api.interceptors.request.use(
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
+        console.log('API Request:', {
+            url: config.url,
+            method: config.method,
+            data: config.data,
+            headers: config.headers
+        });
         return config;
     },
     (error) => {
+        console.error('API Request Error:', error);
         return Promise.reject(error);
     }
 );
 
 // Response interceptor to handle errors
 api.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        console.log('API Response:', {
+            url: response.config.url,
+            status: response.status,
+            data: response.data
+        });
+        return response;
+    },
     (error) => {
+        console.error('API Error Response:', {
+            url: error.config?.url,
+            status: error.response?.status,
+            data: error.response?.data,
+            message: error.message
+        });
+
         if (error.response?.status === 401) {
             // Only redirect if it's an authentication error, not other 401 errors
             const errorMessage = error.response?.data?.message || ''; 
@@ -50,3 +74,5 @@ api.interceptors.response.use(
         return Promise.reject(error);
     }
 );
+
+export { API_BASE_URL };

@@ -14,6 +14,7 @@ import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import Calendar from './pages/Calendar';
 import FacultyActivity from "./pages/FacultyActivity";
+import OverrideAttendance from './pages/OverrideAttendance';
 
 // Import Common Layout Components
 import Sidebar from './components/common/Sidebar';
@@ -64,19 +65,20 @@ function App() {
   const [subjects, setSubjects] = useState([]); // Real subjects data
   const [students, setStudents] = useState({}); // Real students data
   const [loading, setLoading] = useState(false);
+  const [subjectsError, setSubjectsError] = useState('');
 
   // Fetch real subjects data
   const fetchSubjects = async () => {
     if (!isAuthenticated) return;
-    
     try {
       setLoading(true);
+      setSubjectsError('');
       const realSubjects = await subjectsAPI.getMySubjects();
       setSubjects(realSubjects);
     } catch (error) {
       console.error('Error fetching subjects:', error);
-      // Fallback to mock data if API fails
-      setSubjects(mockSubjects);
+      setSubjectsError('Failed to load subjects. Please try again or contact admin.');
+      setSubjects([]);
     } finally {
       setLoading(false);
     }
@@ -194,11 +196,13 @@ function App() {
     }
     switch (route) {
       case '/dashboard':
-        return <Dashboard user={user || mockUser} subjects={subjects} students={students}/>;
+        return <Dashboard user={user || mockUser} subjects={subjects} students={students} subjectsError={subjectsError}/>;
       case '/mark-attendance':
         return <MarkAttendance subjects={subjects} onStart={handleStartQR} />;
       case '/subjects':
-        return <Subjects subjects={subjects} onSelectSubject={handleSelectSubject} />;
+        return <Subjects subjects={subjects} onSelectSubject={handleSelectSubject} subjectsError={subjectsError}/>;
+      case '/override-attendance':
+        return <OverrideAttendance />;
       
       // We pass the handleViewStudentCalendar function as the onSelectStudent prop
       case '/subject-detail':

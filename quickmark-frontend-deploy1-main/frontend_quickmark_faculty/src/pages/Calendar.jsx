@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
-import { getStudentCalendarAttendance } from '../api/attendance';
+import { ArrowLeft, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Check, X } from 'lucide-react';
+import { getStudentCalendarAttendance, overrideAttendance } from '../api/attendance';
 
 // --- HELPER FUNCTIONS ---
 const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -50,6 +50,68 @@ const MonthYearPicker = ({ currentDate, onDateSelect, onClose }) => {
     );
 };
 
+// Manual Override Modal Component
+const ManualOverrideModal = ({ isOpen, onClose, onSubmit, selectedDate, currentStatus, isLoading }) => {
+    if (!isOpen || !selectedDate) return null;
+
+    const formattedDate = new Date(selectedDate.year, selectedDate.month, selectedDate.day)
+        .toLocaleDateString('en-US', { 
+            weekday: 'long', 
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric'
+        });
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold">Manual Attendance Override</h3>
+                    <button 
+                        onClick={onClose} 
+                        disabled={isLoading}
+                        className="text-gray-500 hover:text-gray-700"
+                    >
+                        <X size={20} />
+                    </button>
+                </div>
+
+                <p className="text-gray-600 mb-4">{formattedDate}</p>
+                
+                <div className="space-y-2">
+                    <p className="text-sm text-gray-500 mb-2">
+                        Current Status: <span className="capitalize">{currentStatus || 'Not marked'}</span>
+                    </p>
+                    <button
+                        onClick={() => onSubmit('present')}
+                        disabled={isLoading}
+                        className={`w-full py-2 px-4 bg-green-500 text-white rounded hover:bg-green-600 mb-2 transition-colors
+                            ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                        {isLoading ? 'Updating...' : 'Mark as Present'}
+                    </button>
+                    <button
+                        onClick={() => onSubmit('absent')}
+                        disabled={isLoading}
+                        className={`w-full py-2 px-4 bg-red-500 text-white rounded hover:bg-red-600 mb-2 transition-colors
+                            ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                        {isLoading ? 'Updating...' : 'Mark as Absent'}
+                    </button>
+                    <button
+                        onClick={() => onSubmit('late')}
+                        disabled={isLoading}
+                        className={`w-full py-2 px-4 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition-colors
+                            ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                        {isLoading ? 'Updating...' : 'Mark as Late'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // --- MAIN CALENDAR COMPONENT ---
 const Calendar = ({ subject, student, onBack }) => {
     // --- STATE MANAGEMENT ---
@@ -59,6 +121,8 @@ const Calendar = ({ subject, student, onBack }) => {
     const [showPicker, setShowPicker] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [showOverrideModal, setShowOverrideModal] = useState(false);
+    const [overrideLoading, setOverrideLoading] = useState(false);
 
     // --- FETCH ATTENDANCE DATA ---
     const fetchAttendanceData = async (month, year) => {
@@ -99,24 +163,73 @@ const Calendar = ({ subject, student, onBack }) => {
     };
 
     const handleDateClick = (day) => {
-        if (!day) return;
-        setSelectedDate({
+        const date = {
             day: day,
             month: currentDate.getMonth(),
             year: currentDate.getFullYear()
-        });
+        };
+        setSelectedDate(date);
+        setShowOverrideModal(true);
     };
     
-    const handleManualMarking = () => {
-        if (!selectedDate) return;
-        
-        const dateStr = `${selectedDate.year}-${String(selectedDate.month + 1).padStart(2, '0')}-${String(selectedDate.day).padStart(2, '0')}`;
-        const currentStatus = attendanceData[dateStr];
-        const newStatus = currentStatus === 'present' ? 'absent' : 'present';
+    const handleOverrideSubmit = async (status) => {
+        if (!selectedDate || !subject?.subject_id || !student?.student_id || overrideLoading) return;
 
-        const updatedData = { ...attendanceData, [dateStr]: newStatus };
-        setAttendanceData(updatedData);
-        alert(`Marked student ${student.roll_number || student.rollNo} as ${newStatus} on ${dateStr}`);
+        setOverrideLoading(true);
+        try {
+            const date = `${selectedDate.year}-${String(selectedDate.month + 1).padStart(2, '0')}-${String(selectedDate.day).padStart(2, '0')}`;
+            
+            console.log('Submitting override:', {
+                subject_id: subject.subject_id,
+                student_id: student.student_id,
+                date,
+                status
+            });
+
+            await overrideAttendance(
+                subject.subject_id,
+                student.student_id,
+                date,
+                status
+            );
+
+            // Update local state
+            setAttendanceData(prev => ({
+                ...prev,
+                [date]: status
+            }));
+
+            // Show success toast
+            const toast = document.createElement('div');
+            toast.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg flex items-center z-50';
+            toast.innerHTML = `
+                <svg class="w-4 h-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                </svg>
+                Attendance updated successfully
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+
+            // Close modal
+            setShowOverrideModal(false);
+            setSelectedDate(null);
+
+            // Refresh calendar data
+            fetchAttendanceData();
+
+        } catch (err) {
+            console.error('Error overriding attendance:', err);
+            setError('Failed to update attendance. Please try again.');
+        } finally {
+            setOverrideLoading(false);
+        }
+    };
+
+    const getCurrentStatus = () => {
+        if (!selectedDate) return null;
+        const dateStr = `${selectedDate.year}-${String(selectedDate.month + 1).padStart(2, '0')}-${String(selectedDate.day).padStart(2, '0')}`;
+        return attendanceData[dateStr] || null;
     };
 
     // --- RENDER LOGIC ---
@@ -126,7 +239,9 @@ const Calendar = ({ subject, student, onBack }) => {
         const firstDayIndex = new Date(year, month, 1).getDay();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-        const blanks = Array.from({ length: firstDayIndex }, (_, i) => <div key={`blank-${i}`}></div>);
+        const blanks = Array.from({ length: firstDayIndex }, (_, i) => (
+            <div key={`blank-${i}`}></div>
+        ));
         
         const days = Array.from({ length: daysInMonth }, (_, i) => {
             const day = i + 1;
@@ -158,7 +273,7 @@ const Calendar = ({ subject, student, onBack }) => {
                         {day}
                     </div>
                 </div>
-            )
+            );
         });
 
         return [...blanks, ...days];
@@ -176,6 +291,56 @@ const Calendar = ({ subject, student, onBack }) => {
     };
 
     const buttonState = getButtonState();
+
+    const renderAnalytics = () => {
+        if (!attendanceData || Object.keys(attendanceData).length === 0) {
+            return (
+                <div className="grid grid-cols-3 gap-4 mb-8 text-center">
+                    <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="text-2xl font-bold text-gray-700">0</div>
+                        <div className="text-sm text-gray-600">Total Classes</div>
+                    </div>
+                    <div className="bg-green-50 rounded-lg p-4">
+                        <div className="text-2xl font-bold text-green-700">0%</div>
+                        <div className="text-sm text-gray-600">Attendance</div>
+                    </div>
+                    <div className="bg-red-50 rounded-lg p-4">
+                        <div className="text-2xl font-bold text-red-700">0</div>
+                        <div className="text-sm text-gray-600">Classes Missed</div>
+                    </div>
+                </div>
+            );
+        }
+
+        const stats = Object.values(attendanceData).reduce((acc, status) => {
+            if (status === 'present') acc.present++;
+            else if (status === 'absent') acc.absent++;
+            else if (status === 'late') acc.late++;
+            return acc;
+        }, { present: 0, absent: 0, late: 0 });
+
+        const totalClasses = stats.present + stats.absent + stats.late;
+        const attendancePercentage = totalClasses > 0 
+            ? Math.round(((stats.present + stats.late) / totalClasses) * 100)
+            : 0;
+
+        return (
+            <div className="grid grid-cols-3 gap-4 mb-8 text-center">
+                <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="text-2xl font-bold text-gray-700">{totalClasses}</div>
+                    <div className="text-sm text-gray-600">Total Classes</div>
+                </div>
+                <div className="bg-green-50 rounded-lg p-4">
+                    <div className="text-2xl font-bold text-green-700">{attendancePercentage}%</div>
+                    <div className="text-sm text-gray-600">Attendance</div>
+                </div>
+                <div className="bg-red-50 rounded-lg p-4">
+                    <div className="text-2xl font-bold text-red-700">{stats.absent}</div>
+                    <div className="text-sm text-gray-600">Classes Missed</div>
+                </div>
+            </div>
+        );
+    };
 
     if (!subject || !student) {
         return (
@@ -209,29 +374,45 @@ const Calendar = ({ subject, student, onBack }) => {
             )}
 
             <div className="bg-white p-6 rounded-lg shadow-md">
-                <div className="relative flex justify-between items-center mb-6 px-4">
-                    <button onClick={goToPreviousMonth} className="p-2 rounded-full hover:bg-gray-100"><ChevronLeft size={20}/></button>
-                    <div className="text-center">
-                         <button onClick={() => setShowPicker(!showPicker)} className="flex items-center gap-2 font-semibold text-lg p-2 rounded-md hover:bg-gray-100">
-                             {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
-                             <CalendarIcon size={18} className="text-text-secondary"/>
-                         </button>
-                    </div>
-                    <button onClick={goToNextMonth} className="p-2 rounded-full hover:bg-gray-100"><ChevronRight size={20}/></button>
-                     {showPicker && <MonthYearPicker currentDate={currentDate} onDateSelect={setCurrentDate} onClose={() => setShowPicker(false)} />}
-                </div>
-                
                 {loading ? (
                     <div className="flex justify-center items-center h-64">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                     </div>
                 ) : (
                     <>
+                        {renderAnalytics()}
+
+                        <div className="relative flex justify-between items-center mb-6 px-4">
+                            <button onClick={goToPreviousMonth} className="p-2 rounded-full hover:bg-gray-100">
+                                <ChevronLeft size={20}/>
+                            </button>
+                            <div className="text-center">
+                                <button onClick={() => setShowPicker(!showPicker)} className="flex items-center gap-2 font-semibold text-lg p-2 rounded-md hover:bg-gray-100">
+                                    {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+                                    <CalendarIcon size={18} className="text-text-secondary"/>
+                                </button>
+                            </div>
+                            <button onClick={goToNextMonth} className="p-2 rounded-full hover:bg-gray-100">
+                                <ChevronRight size={20}/>
+                            </button>
+                            {showPicker && (
+                                <MonthYearPicker 
+                                    currentDate={currentDate} 
+                                    onDateSelect={setCurrentDate} 
+                                    onClose={() => setShowPicker(false)} 
+                                />
+                            )}
+                        </div>
+
                         <div className="grid grid-cols-7 gap-y-2 text-center text-sm">
-                            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => <div key={`header-${index}`} className="font-medium text-text-secondary">{day}</div>)}
+                            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+                                <div key={`header-${index}`} className="font-medium text-text-secondary">
+                                    {day}
+                                </div>
+                            ))}
                             {renderCalendarGrid()}
                         </div>
-                        
+
                         <div className="mt-6 flex justify-center gap-6 text-sm">
                             <div className="flex items-center gap-2">
                                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
@@ -246,19 +427,29 @@ const Calendar = ({ subject, student, onBack }) => {
                                 <span>Absent</span>
                             </div>
                         </div>
+
+                        {error && (
+                            <div className="mt-4 p-3 bg-red-100 text-red-700 rounded-lg">
+                                {error}
+                            </div>
+                        )}
                     </>
                 )}
             </div>
 
-            <div className="mt-8 text-center">
-                 <button
-                    onClick={handleManualMarking}
-                    disabled={buttonState.disabled || loading}
-                    className="w-full max-w-xs bg-primary text-white font-bold py-3 px-4 rounded-lg hover:bg-primary-dark transition-colors duration-300 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                >
-                    {buttonState.text}
-                </button>
-            </div>
+            <ManualOverrideModal
+                isOpen={showOverrideModal}
+                onClose={() => {
+                    if (!overrideLoading) {
+                        setShowOverrideModal(false);
+                        setSelectedDate(null);
+                    }
+                }}
+                onSubmit={handleOverrideSubmit}
+                selectedDate={selectedDate}
+                currentStatus={getCurrentStatus()}
+                isLoading={overrideLoading}
+            />
         </div>
     );
 };

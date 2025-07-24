@@ -29,14 +29,14 @@ export default function BulkEnrollStudents() {
       let response;
       if (mode === 'single') {
         const rollnos = csvData.map(row => row.rollno).filter(Boolean);
-        response = await fetch('/api/admin/enrollments/bulk/single-subject', {
+        response = await fetch(`${API_BASE_URL}/enrollments/bulk/single-subject`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('adminToken')}` },
           body: JSON.stringify({ subject_id: subjectId, rollnos }),
         });
       } else {
         const enrollments = csvData.map(row => ({ rollno: row.rollno, subject_id: row.subject_id })).filter(e => e.rollno && e.subject_id);
-        response = await fetch('/api/admin/enrollments/bulk/multi-subject', {
+        response = await fetch(`${API_BASE_URL}/enrollments/bulk/multi-subject`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('adminToken')}` },
           body: JSON.stringify({ enrollments }),

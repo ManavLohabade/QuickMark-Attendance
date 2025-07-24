@@ -12,23 +12,28 @@ import {
   GraduationCap, // Add this for Degree icon
   Activity,
   UserPlus,
+  BookOpen, // Added BookOpen icon
+  AlertTriangle, // Added AlertTriangle icon
+  Camera, // Added Camera icon
 } from "lucide-react";
 
 export default function Sidebar({ currentPage, navigateTo, onLogout }) {
   // Updated navItems array - Following recommended flow order
   const navItems = [
-    { path: "Home", label: "Home", icon: LayoutDashboard },
-    { path: "Degree", label: "Degree", icon: GraduationCap }, // Degree link
-    { path: "Departments", label: "Departments", icon: Building },
-    { path: "Faculty", label: "Faculty", icon: User },
-    { path: "Subjects", label: "Subjects", icon: Book },
-    { path: "Students", label: "Students", icon: User },
-    { path: "CoreEnrollments", label: "Enrollments", icon: UserPlus },
-    { path: "Defaulters", label: "Defaulters", icon: ShieldAlert },
-    { path: "FaceRegister", label: "Face Register", icon: "📷" },
-    { path: "AdminActivityLog", label: "Activity Log", icon: Activity },
-    { path: "FacultyManagement", label: "Faculty Management", icon: Users }, // Move here, below Activity Log
-    { path: "Settings", label: "Settings", icon: Settings },
+    { path: 'Home', label: 'Home', icon: LayoutDashboard },
+    { path: 'Dashboard', label: 'Dashboard', icon: '📊' },
+    { path: 'Degree', label: 'Degree', icon: GraduationCap },
+    { path: 'Departments', label: 'Departments', icon: Building },
+    { path: 'Faculty', label: 'Faculty', icon: Users },
+    { path: 'Subjects', label: 'Subjects', icon: BookOpen },
+    { path: 'Students', label: 'Students', icon: Users },
+    { path: 'Enrollments', label: 'Enrollments', icon: UserPlus },
+    { path: 'Defaulters', label: 'Defaulters', icon: AlertTriangle },
+    { path: 'FaceRegister', label: 'Face Register', icon: Camera },
+    { path: 'AdminActivityLog', label: 'Activity Log', icon: Activity },
+    { path: 'FacultyManagement', label: 'Faculty Management', icon: Users },
+    { path: 'SystemHealth', label: 'System Health', icon: '🩺' },
+    { path: 'Settings', label: 'Settings', icon: Settings },
   ];
 
   const getIcon = (item) => {

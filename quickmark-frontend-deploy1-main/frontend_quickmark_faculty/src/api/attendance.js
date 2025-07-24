@@ -90,3 +90,40 @@ export const getSessionLiveCount = async (sessionId) => {
         throw error;
     }
 };
+
+// Manual override student attendance for a specific date
+export const overrideAttendance = async (subjectId, studentId, date, status) => {
+    try {
+        console.log('Sending override request:', {
+            subject_id: subjectId,
+            student_id: studentId,
+            date,
+            status
+        });
+
+        const response = await api.post('/attendance/override', {
+            subject_id: subjectId,
+            student_id: studentId,
+            date,
+            status
+        });
+
+        console.log('Override response:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('Override API error:', error.response?.data || error.message);
+        throw error;
+    }
+};
+
+// Fetch override log/history for a subject/student
+export const getOverrideLog = async (subjectId, studentId) => {
+    try {
+        const response = await api.get('/attendance/overrides', {
+            params: { subject_id: subjectId, student_id: studentId }
+        });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};

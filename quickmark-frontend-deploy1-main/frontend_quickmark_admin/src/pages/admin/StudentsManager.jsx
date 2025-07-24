@@ -19,7 +19,7 @@ const StudentsManager = () => {
       if (filters.departmentId) params.departmentId = filters.departmentId;
       if (filters.year) params.year = filters.year;
       if (filters.section) params.section = filters.section;
-      const res = await axios.get('/api/admin/students', { params });
+      const res = await axios.get(`${API_BASE_URL}/admin/students`, { params });
       setStudents(res.data.students || []);
     } catch (err) {
       setError('Failed to fetch students.');

@@ -1,164 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { X, Info } from 'lucide-react'; // Added Info icon
+import { X } from 'lucide-react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { API_BASE_URL } from '../../utils/api';
 
-// Helper component to show attendance details in a tooltip
-const AttendanceTooltip = ({ records }) => {
-    if (!records || records.length === 0) return null;
-    
-    return (
-        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 bg-gray-800 text-white text-xs rounded py-1 px-2 w-max max-w-xs z-50">
-            {records.map((record, idx) => (
-                <div key={idx} className="whitespace-nowrap">
-                    {record.subject_name}: {record.attendance_status}
-                    {record.attendance_status === 'late' && ` (${record.late_minutes} mins)`}
-                </div>
-            ))}
-        </div>
-    );
-};
-
-// Helper component to show attendance statistics
-const AttendanceStats = ({ data }) => {
-    if (!data || data.length === 0) return null;
-
-    const stats = data.reduce((acc, record) => {
-        if (record.attendance_status === 'present') acc.present++;
-        else if (record.attendance_status === 'absent') acc.absent++;
-        else if (record.attendance_status === 'late') acc.late++;
-        return acc;
-    }, { present: 0, absent: 0, late: 0 });
-
-    const total = stats.present + stats.absent + stats.late;
-    const attendancePercentage = total > 0 
-        ? ((stats.present + stats.late) / total * 100).toFixed(1)
-        : 0;
-
-    return (
-        <div className="bg-white p-4 rounded-lg shadow-sm mb-4 grid grid-cols-4 gap-4">
-            <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">{stats.present}</div>
-                <div className="text-sm text-gray-600">Present</div>
-            </div>
-            <div className="text-center">
-                <div className="text-2xl font-bold text-red-600">{stats.absent}</div>
-                <div className="text-sm text-gray-600">Absent</div>
-            </div>
-            <div className="text-center">
-                <div className="text-2xl font-bold text-yellow-600">{stats.late}</div>
-                <div className="text-sm text-gray-600">Late</div>
-            </div>
-            <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">{attendancePercentage}%</div>
-                <div className="text-sm text-gray-600">Attendance</div>
-            </div>
-        </div>
-    );
-};
-
-// Helper component to render the calendar grid for a month
-const CalendarGrid = ({ data }) => {
-    const [hoveredDay, setHoveredDay] = useState(null);
-
-    if (!data || data.length === 0) {
-        return <p className="text-center text-gray-500 py-4">No attendance records found for this period.</p>;
-    }
-
-    const groupedByMonth = data.reduce((acc, record) => {
-        const date = new Date(record.session_date);
-        const yearMonth = `${date.getFullYear()}-${date.getMonth()}`;
-        if (!acc[yearMonth]) {
-            acc[yearMonth] = {
-                name: date.toLocaleString('default', { month: 'long', year: 'numeric' }),
-                days: {}
-            };
-        }
-        const dayOfMonth = date.getDate();
-        if (!acc[yearMonth].days[dayOfMonth]) {
-            acc[yearMonth].days[dayOfMonth] = [];
-        }
-        acc[yearMonth].days[dayOfMonth].push(record);
-        return acc;
-    }, {});
-
-    const sortedMonths = Object.keys(groupedByMonth).sort((a, b) => {
-        const [y1, m1] = a.split('-').map(Number);
-        const [y2, m2] = b.split('-').map(Number);
-        if (y1 !== y2) return y1 - y2;
-        return m1 - m2;
-    });
-
-    return (
-        <div className="space-y-6">
-            {sortedMonths.map(yearMonth => {
-                const [year, monthIndex] = yearMonth.split('-').map(Number);
-                const firstDayOfMonth = new Date(year, monthIndex, 1).getDay();
-                const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
-
-                return (
-                    <div key={yearMonth} className="border p-4 rounded-lg shadow-sm">
-                        <h4 className="font-semibold text-lg mb-4 text-center">{groupedByMonth[yearMonth].name}</h4>
-                        <div className="grid grid-cols-7 gap-1 text-center text-sm font-medium text-gray-600 mb-2">
-                            <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
-                        </div>
-                        <div className="grid grid-cols-7 gap-1 text-center">
-                            {Array.from({ length: firstDayOfMonth }).map((_, i) => (
-                                <span key={`empty-pre-${yearMonth}-${i}`} className="p-1"></span>
-                            ))}
-                            {Array.from({ length: daysInMonth }).map((_, dayIndex) => {
-                                const dayNum = dayIndex + 1;
-                                const recordsForDay = groupedByMonth[yearMonth].days[dayNum] || [];
-                                const hasPresent = recordsForDay.some(r => r.attendance_status === 'present');
-                                const hasAbsent = recordsForDay.some(r => r.attendance_status === 'absent');
-                                const hasLate = recordsForDay.some(r => r.attendance_status === 'late');
-
-                                let bgColor = 'bg-gray-100';
-                                let textColor = 'text-gray-800';
-                                let hoverEffect = '';
-
-                                if (hasPresent && !hasAbsent && !hasLate) {
-                                    bgColor = 'bg-green-100';
-                                    textColor = 'text-green-700';
-                                } else if (hasAbsent && !hasPresent && !hasLate) {
-                                    bgColor = 'bg-red-100';
-                                    textColor = 'text-red-700';
-                                } else if (hasLate && !hasAbsent) {
-                                    bgColor = 'bg-yellow-100';
-                                    textColor = 'text-yellow-700';
-                                } else if (recordsForDay.length > 0) {
-                                    bgColor = 'bg-blue-100';
-                                    textColor = 'text-blue-700';
-                                }
-
-                                if (recordsForDay.length > 0) {
-                                    hoverEffect = 'hover:ring-2 hover:ring-blue-400 cursor-pointer';
-                                }
-
-                                return (
-                                    <div
-                                        key={`day-${yearMonth}-${dayNum}`}
-                                        className={`relative p-2 rounded-md ${bgColor} ${textColor} ${hoverEffect} transition-all duration-200`}
-                                        onMouseEnter={() => setHoveredDay(`${yearMonth}-${dayNum}`)}
-                                        onMouseLeave={() => setHoveredDay(null)}
-                                    >
-                                        <span className="relative z-10">{dayNum}</span>
-                                        {recordsForDay.length > 0 && (
-                                            <span className="absolute top-0 right-0 w-2 h-2 bg-blue-500 rounded-full"></span>
-                                        )}
-                                        {hoveredDay === `${yearMonth}-${dayNum}` && recordsForDay.length > 0 && (
-                                            <AttendanceTooltip records={recordsForDay} />
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                );
-            })}
-        </div>
-    );
-};
+const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 const StudentAttendanceCalendarModel = ({ studentId, studentName, onClose }) => {
     const [calendarData, setCalendarData] = useState([]);
@@ -180,12 +26,33 @@ const StudentAttendanceCalendarModel = ({ studentId, studentName, onClose }) => 
                     setLoading(false);
                     return;
                 }
-                const response = await axios.get(`http://localhost:3700/api/student/${studentId}/attendance/calendar?month=${currentMonth}&year=${currentYear}`, {
-                    headers: { Authorization: `Bearer ${token}` }
+
+                console.log('Fetching calendar data:', {
+                    studentId,
+                    month: currentMonth,
+                    year: currentYear,
+                    url: `${API_BASE_URL}/admin/student/${studentId}/attendance/calendar?month=${currentMonth}&year=${currentYear}`
                 });
-                setCalendarData(response.data);
+
+                const response = await axios.get(
+                    `${API_BASE_URL}/admin/student/${studentId}/attendance/calendar?month=${currentMonth}&year=${currentYear}`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+
+                console.log('Calendar API response:', response.data);
+
+                if (response.data && Array.isArray(response.data.records)) {
+                    setCalendarData(response.data.records);
+                } else {
+                    console.error('Invalid response format:', response.data);
+                    setError('Invalid data format received from server');
+                }
             } catch (err) {
-                console.error('Error fetching student calendar data:', err.response ? err.response.data : err.message);
+                console.error('Error fetching calendar data:', {
+                    error: err,
+                    response: err.response?.data,
+                    status: err.response?.status
+                });
                 setError(err.response?.data?.message || 'Failed to load attendance calendar.');
             } finally {
                 setLoading(false);
@@ -211,71 +78,187 @@ const StudentAttendanceCalendarModel = ({ studentId, studentName, onClose }) => 
         setCurrentYear(newYear);
     };
 
+    const renderAnalytics = () => {
+        if (!calendarData || calendarData.length === 0) {
+            return (
+                <div className="grid grid-cols-3 gap-4 mb-6 text-center">
+                    <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="text-2xl font-bold text-gray-700">0</div>
+                        <div className="text-sm text-gray-600">Total Classes</div>
+                    </div>
+                    <div className="bg-green-50 rounded-lg p-4">
+                        <div className="text-2xl font-bold text-green-700">0%</div>
+                        <div className="text-sm text-gray-600">Attendance</div>
+                    </div>
+                    <div className="bg-red-50 rounded-lg p-4">
+                        <div className="text-2xl font-bold text-red-700">0</div>
+                        <div className="text-sm text-gray-600">Classes Missed</div>
+                    </div>
+                </div>
+            );
+        }
+
+        const stats = calendarData.reduce((acc, record) => {
+            if (record.status === 'present') acc.present++;
+            else if (record.status === 'absent') acc.absent++;
+            else if (record.status === 'late') acc.late++;
+            return acc;
+        }, { present: 0, absent: 0, late: 0 });
+
+        const totalClasses = stats.present + stats.absent + stats.late;
+        const attendancePercentage = totalClasses > 0 
+            ? Math.round(((stats.present + stats.late) / totalClasses) * 100)
+            : 0;
+
+        return (
+            <div className="grid grid-cols-3 gap-4 mb-6 text-center">
+                <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="text-2xl font-bold text-gray-700">{totalClasses}</div>
+                    <div className="text-sm text-gray-600">Total Classes</div>
+                </div>
+                <div className="bg-green-50 rounded-lg p-4">
+                    <div className="text-2xl font-bold text-green-700">{attendancePercentage}%</div>
+                    <div className="text-sm text-gray-600">Attendance</div>
+                </div>
+                <div className="bg-red-50 rounded-lg p-4">
+                    <div className="text-2xl font-bold text-red-700">{stats.absent}</div>
+                    <div className="text-sm text-gray-600">Classes Missed</div>
+                </div>
+            </div>
+        );
+    };
+
+    const renderCalendarGrid = () => {
+        const firstDayIndex = new Date(currentYear, currentMonth - 1, 1).getDay();
+        const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+
+        // Create array for calendar days including empty cells for proper alignment
+        const days = [];
+        for (let i = 0; i < firstDayIndex; i++) {
+            days.push(null); // Empty cells before first day
+        }
+        for (let i = 1; i <= daysInMonth; i++) {
+            days.push(i);
+        }
+
+        // Group attendance records by date
+        const recordsByDate = calendarData.reduce((acc, record) => {
+            const date = new Date(record.session_date);
+            const dayKey = date.getDate();
+            if (!acc[dayKey]) acc[dayKey] = [];
+            acc[dayKey].push(record);
+            return acc;
+        }, {});
+
+        return (
+            <div className="grid grid-cols-7 gap-1">
+                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+                    <div key={`header-${index}`} className="text-center py-2 text-sm font-medium text-gray-600">
+                        {day}
+                    </div>
+                ))}
+                {days.map((day, index) => {
+                    if (day === null) {
+                        return <div key={`empty-${index}`} className="p-4"></div>;
+                    }
+
+                    const records = recordsByDate[day] || [];
+                    let statusClass = '';
+                    let dotColor = '';
+
+                    if (records.length > 0) {
+                        const statuses = records.map(r => r.status);
+                        if (statuses.every(s => s === 'present')) {
+                            statusClass = 'bg-green-50';
+                            dotColor = 'bg-green-500';
+                        } else if (statuses.every(s => s === 'absent')) {
+                            statusClass = 'bg-red-50';
+                            dotColor = 'bg-red-500';
+                        } else if (statuses.every(s => s === 'late')) {
+                            statusClass = 'bg-yellow-50';
+                            dotColor = 'bg-yellow-500';
+                        }
+                    }
+
+                    return (
+                        <div
+                            key={`day-${day}`}
+                            className={`relative p-4 text-center ${statusClass} rounded-lg`}
+                        >
+                            <span className="text-sm">{day}</span>
+                            {records.length > 0 && (
+                                <span className={`absolute top-1 right-1 w-2 h-2 rounded-full ${dotColor}`}></span>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    };
+
     return (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
-            <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-                <div className="flex justify-between items-center mb-4 border-b pb-3">
-                    <h2 className="text-xl font-semibold">Attendance Calendar for {studentName || 'Student'}</h2>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800 p-1 rounded-full hover:bg-gray-100">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl">
+                <div className="flex justify-between items-center p-4 border-b">
+                    <h2 className="text-xl font-semibold">
+                        Attendance Calendar
+                        <div className="text-sm text-gray-600 mt-1">{studentName}</div>
+                    </h2>
+                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
                         <X size={24} />
                     </button>
                 </div>
 
-                {/* Legend */}
-                <div className="flex items-center justify-center gap-4 mb-4 text-sm">
-                    <div className="flex items-center gap-1">
-                        <div className="w-4 h-4 bg-green-100 rounded"></div>
-                        <span>Present</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                        <div className="w-4 h-4 bg-red-100 rounded"></div>
-                        <span>Absent</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                        <div className="w-4 h-4 bg-yellow-100 rounded"></div>
-                        <span>Late</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                        <div className="w-4 h-4 bg-blue-100 rounded"></div>
-                        <span>Mixed</span>
-                    </div>
+                <div className="p-6">
+                    {loading ? (
+                        <div className="flex justify-center items-center py-12">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                        </div>
+                    ) : error ? (
+                        <div className="text-red-500 text-center py-8">
+                            {error}
+                        </div>
+                    ) : (
+                        <>
+                            {renderAnalytics()}
+
+                            <div className="flex justify-between items-center mb-6">
+                                <button 
+                                    onClick={() => handleMonthChange(-1)}
+                                    className="p-2 hover:bg-gray-100 rounded-full"
+                                >
+                                    <ChevronLeft size={20} />
+                                </button>
+                                <h2 className="text-lg font-semibold">
+                                    {monthNames[currentMonth - 1]} {currentYear}
+                                </h2>
+                                <button 
+                                    onClick={() => handleMonthChange(1)}
+                                    className="p-2 hover:bg-gray-100 rounded-full"
+                                >
+                                    <ChevronRight size={20} />
+                                </button>
+                            </div>
+
+                            {renderCalendarGrid()}
+                            
+                            <div className="flex justify-center gap-6 mt-6 text-sm">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-3 h-3 rounded-full bg-green-500"></span>
+                                    <span>Present</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="w-3 h-3 rounded-full bg-red-500"></span>
+                                    <span>Absent</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="w-3 h-3 rounded-full bg-yellow-500"></span>
+                                    <span>Late</span>
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
-
-                {/* Attendance Statistics */}
-                <AttendanceStats data={calendarData} />
-
-                {/* Month Navigation */}
-                <div className="flex justify-between items-center mb-4">
-                    <button 
-                        onClick={() => handleMonthChange(-1)} 
-                        className="p-2 rounded-full hover:bg-gray-200 transition-colors"
-                    >
-                        <ChevronLeft size={20} />
-                    </button>
-                    <span className="text-lg font-bold">
-                        {new Date(currentYear, currentMonth - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}
-                    </span>
-                    <button 
-                        onClick={() => handleMonthChange(1)} 
-                        className="p-2 rounded-full hover:bg-gray-200 transition-colors"
-                    >
-                        <ChevronRight size={20} />
-                    </button>
-                </div>
-
-                {loading ? (
-                    <div className="text-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                        <div>Loading Calendar...</div>
-                    </div>
-                ) : error ? (
-                    <div className="text-red-500 text-center py-8 bg-red-50 rounded-lg">
-                        <Info size={24} className="mx-auto mb-2" />
-                        Error: {error}
-                    </div>
-                ) : (
-                    <CalendarGrid data={calendarData} />
-                )}
             </div>
         </div>
     );
