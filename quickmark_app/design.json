@@ -1,0 +1,61 @@
+{
+  "theme": {
+    "primaryColor": "#4A90E2",
+    "accentColor": "#50E3C2",
+    "backgroundColor": "#F5F5F5",
+    "textColor": "#333333",
+    "errorColor": "#D0021B"
+  },
+  "typography": {
+    "fontFamily": "Roboto",
+    "headline": {
+      "fontSize": 24,
+      "fontWeight": "bold"
+    },
+    "title": {
+      "fontSize": 20,
+      "fontWeight": "bold"
+    },
+    "body": {
+      "fontSize": 16
+    },
+    "button": {
+      "fontSize": 18,
+      "fontWeight": "bold",
+      "letterSpacing": 1.25
+    }
+  },
+  "components": {
+    "button": {
+      "borderRadius": 8,
+      "padding": {
+        "vertical": 12,
+        "horizontal": 24
+      },
+      "elevation": 2
+    },
+    "textField": {
+      "borderRadius": 8,
+      "border": {
+        "width": 1,
+        "color": "#CCCCCC"
+      },
+      "focusedBorder": {
+        "width": 2,
+        "color": "#4A90E2"
+      }
+    },
+    "card": {
+      "borderRadius": 12,
+      "elevation": 4,
+      "margin": 16
+    },
+    "cameraPreview": {
+      "overlayColor": "rgba(0, 0, 0, 0.5)",
+      "faceOutline": {
+        "color": "#50E3C2",
+        "strokeWidth": 3
+      }
+    }
+  }
+}

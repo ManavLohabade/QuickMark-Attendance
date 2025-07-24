@@ -114,5 +114,7 @@ app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`Health check available at: http://localhost:${PORT}/health`);
     console.log(`CORS enabled for origins: ${corsOptions.origin.join(', ')}`);
+
     console.log(`Uploads directory: ${path.join(__dirname, 'uploads')}`);
 });
+
