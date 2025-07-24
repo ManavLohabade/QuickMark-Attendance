@@ -227,4 +227,69 @@ CREATE TABLE IF NOT EXISTS enrollment_audit (
     action_timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Add photo_url and password management columns to faculties table
+ALTER TABLE public.faculties 
+ADD COLUMN IF NOT EXISTS photo_url text,
+ADD COLUMN IF NOT EXISTS last_password_change TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN IF NOT EXISTS password_expires_at TIMESTAMPTZ;
+
+-- Remove expiry columns if they exist
+ALTER TABLE public.faculties 
+DROP COLUMN IF EXISTS last_password_change,
+DROP COLUMN IF EXISTS password_expires_at;
+
+-- Update faculty_password_history table definition
+CREATE TABLE IF NOT EXISTS public.faculty_password_history (
+    history_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    faculty_id UUID REFERENCES faculties(faculty_id) ON DELETE CASCADE,
+    password_hash TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add index for password history lookups
+CREATE INDEX IF NOT EXISTS idx_faculty_password_history 
+ON faculty_password_history(faculty_id, created_at DESC);
+
+-- Table to track faculty photo upload history
+CREATE TABLE IF NOT EXISTS public.faculty_photo_history (
+    history_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    faculty_id UUID REFERENCES faculties(faculty_id) ON DELETE CASCADE,
+    photo_url TEXT NOT NULL,
+    uploaded_by UUID, -- Can be admin_id or faculty_id
+    uploaded_by_role TEXT, -- 'admin' or 'faculty'
+    uploaded_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT valid_uploader_role CHECK (uploaded_by_role IN ('admin', 'faculty'))
+);
+
+-- Table to track password history and prevent reuse
+CREATE TABLE IF NOT EXISTS public.faculty_password_history (
+    history_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    faculty_id UUID NOT NULL REFERENCES faculties(faculty_id) ON DELETE CASCADE,
+    password_hash TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table to track faculty profile update history
+CREATE TABLE IF NOT EXISTS public.faculty_profile_audit (
+    audit_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    faculty_id UUID NOT NULL REFERENCES faculties(faculty_id) ON DELETE CASCADE,
+    field_name TEXT NOT NULL,
+    old_value TEXT,
+    new_value TEXT,
+    updated_by UUID, -- Can be admin_id or faculty_id
+    updated_by_role TEXT, -- 'admin' or 'faculty'
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT valid_updater_role CHECK (updated_by_role IN ('admin', 'faculty'))
+);
+
+-- Add indexes for better query performance
+CREATE INDEX IF NOT EXISTS idx_faculty_password_history 
+ON public.faculty_password_history(faculty_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_faculty_profile_audit_faculty 
+ON public.faculty_profile_audit(faculty_id, updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_faculty_photo_history_faculty 
+ON public.faculty_photo_history(faculty_id, uploaded_at DESC);
+
 -- PostgreSQL database dump complete

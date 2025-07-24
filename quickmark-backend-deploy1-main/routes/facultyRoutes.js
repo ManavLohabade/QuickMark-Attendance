@@ -1,23 +1,61 @@
 const express = require('express');
-const { loginFaculty, getMyProfile, updateMyProfile, changeMyPassword, getSubjectStudents } = require('../controllers/facultyController');
-const { getFacultySubjects } = require('../models/userModel'); // Fixed: import from userModel
-const { authMiddleware } = require('../middleware/authMiddleware'); // Fixed: use destructuring
-const { requireFaculty } = require('../middleware/accessControlMiddleware'); // Import role middleware
+const multer = require('multer');
+const path = require('path');
+const { 
+    loginFaculty, 
+    getMyProfile, 
+    updateMyProfile, 
+    changeMyPassword, 
+    getSubjectStudents,
+    uploadProfilePhoto,
+    checkPasswordStatus
+} = require('../controllers/facultyController');
+const { getFacultySubjects } = require('../models/userModel');
+const { authMiddleware } = require('../middleware/authMiddleware');
+const { requireFaculty } = require('../middleware/accessControlMiddleware');
+
+// Make sure requireFaculty checks for req.user.role === 'faculty' in its implementation
+
+// Simple multer setup for profile photos
+const storage = multer.diskStorage({
+    destination: 'uploads/faculty/photos/',
+    filename: (req, file, cb) => {
+        const uniqueName = `faculty-${Date.now()}${path.extname(file.originalname)}`;
+        cb(null, uniqueName);
+    }
+});
+
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+        if (allowedTypes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only .jpg and .png files are allowed'));
+        }
+    }
+});
 
 const router = express.Router();
 
-// PUBLIC ROUTE: Faculty Login
+// Public routes
 router.post('/login', loginFaculty);
 
-// PROTECTED ROUTES: Require a valid token via authMiddleware
+// Protected routes
 router.get('/me', authMiddleware, getMyProfile);
 router.put('/me', authMiddleware, updateMyProfile);
 router.put('/me/password', authMiddleware, changeMyPassword);
+router.get('/me/password-status', authMiddleware, requireFaculty, checkPasswordStatus);
 
-// Faculty assigned subjects - requires faculty role check
+// Profile photo upload
+router.post('/me/photo', authMiddleware, upload.single('photo'), uploadProfilePhoto);
+
+// Faculty subject routes
 router.get('/me/subjects', authMiddleware, requireFaculty, async (req, res) => {
     try {
-        const subjects = await getFacultySubjects(req.user.id); // Use req.user.id from authMiddleware
+        const subjects = await getFacultySubjects(req.user.id);
         res.status(200).json(subjects);
     } catch (error) {
         console.error('Error fetching faculty subjects:', error);
@@ -25,7 +63,6 @@ router.get('/me/subjects', authMiddleware, requireFaculty, async (req, res) => {
     }
 });
 
-// Get enrolled students for a subject (only if faculty is assigned to that subject)
 router.get('/subjects/:subject_id/students', authMiddleware, requireFaculty, getSubjectStudents);
 
 module.exports = router;

@@ -1,70 +1,60 @@
-const { verifyToken } = require('../config/jwt');
+const jwt = require('jsonwebtoken');
+const { jwtSecret } = require('../config/jwt');
+const userModel = require('../models/userModel');
 
-// Regular authentication middleware
-const authMiddleware = (req, res, next) => {
-    console.log('--- Executing authMiddleware (regular user) ---');
-    console.log('Auth Header:', req.header('Authorization') ? 'Present' : 'Missing');
-
-    const authHeader = req.header('Authorization');
-    if (!authHeader) {
-        return res.status(401).json({ message: 'No token, authorization denied' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    if (!token) {
-        return res.status(401).json({ message: 'Token format is incorrect' });
-    }
-
+const authMiddleware = async (req, res, next) => {
     try {
+        // Get token from header
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({ message: 'No token provided.' });
+        }
+
+        const token = authHeader.split(' ')[1];
+        if (!token) {
+            return res.status(401).json({ message: 'Invalid token format.' });
+        }
+
+        // Verify token using wrapper
+        const { verifyToken } = require('../config/jwt');
         const decoded = verifyToken(token);
         if (!decoded) {
-            return res.status(401).json({ message: 'Token is not valid' });
+            return res.status(401).json({ message: 'Invalid or expired token.' });
         }
         req.user = decoded;
+
         next();
     } catch (error) {
-        return res.status(401).json({ message: 'Token is not valid', error: error.message });
+        console.error('Auth middleware error:', error);
+        res.status(500).json({ message: 'Internal server error.' });
     }
 };
 
-// Faculty authentication middleware
-const facultyAuthMiddleware = (req, res, next) => {
-    console.log('--- Executing facultyAuthMiddleware ---');
-    console.log('Auth Header:', req.header('Authorization') ? 'Present' : 'Missing');
-
-    const authHeader = req.header('Authorization');
-    if (!authHeader) {
-        return res.status(401).json({ message: 'No token, authorization denied' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    if (!token) {
-        return res.status(401).json({ message: 'Token format is incorrect' });
-    }
-
+// Check if password needs to be changed
+const checkPasswordExpiry = async (req, res, next) => {
     try {
-        const decoded = verifyToken(token);
-        if (!decoded || !decoded.faculty_id) {
-            return res.status(401).json({ message: 'Not authorized as faculty' });
+        // Skip check for password-related endpoints
+        if (req.path.includes('/password')) {
+            return next();
         }
-        req.user = decoded;
+
+        const status = await userModel.checkPasswordExpiry(req.user.id);
+        if (status.password_expired) {
+            return res.status(403).json({
+                message: 'Password has expired. Please change your password to continue.',
+                code: 'PASSWORD_EXPIRED',
+                expires_at: status.password_expires_at
+            });
+        }
         next();
     } catch (error) {
-        return res.status(401).json({ message: 'Token is not valid', error: error.message });
+        console.error('Password expiry check error:', error);
+        next(); // Continue even if check fails
     }
-};
-
-// Middleware to allow only Admin or Faculty
-const requireAdminOrFaculty = (req, res, next) => {
-    const user = req.user;
-    if (user && (user.isAdmin || user.isFaculty)) {
-        return next();
-    }
-    return res.status(403).json({ message: 'Forbidden: Only admin or faculty can perform this action.' });
 };
 
 module.exports = {
     authMiddleware,
-    requireAdminOrFaculty,
-    facultyAuthMiddleware,
+    checkPasswordExpiry,
+    
 };

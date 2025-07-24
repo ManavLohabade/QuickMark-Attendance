@@ -46,30 +46,95 @@ const updateMyProfile = async (req, res) => {
     }
 };
 
+// Password validation rules
+const validatePassword = (password) => {
+    const errors = [];
+    if (password.length < 8) {
+        errors.push('Password must be at least 8 characters long');
+    }
+    if (!/[A-Z]/.test(password)) {
+        errors.push('Password must contain at least one uppercase letter');
+    }
+    if (!/[a-z]/.test(password)) {
+        errors.push('Password must contain at least one lowercase letter');
+    }
+    if (!/[0-9]/.test(password)) {
+        errors.push('Password must contain at least one number');
+    }
+    if (!/[!@#$%^&*]/.test(password)) {
+        errors.push('Password must contain at least one special character (!@#$%^&*)');
+    }
+    return errors;
+};
+
 // Changes the password of the authenticated faculty.
 const changeMyPassword = async (req, res) => {
     const facultyId = req.user.id;
     const { current_password, new_password } = req.body;
+
+    // Validate request
     if (!current_password || !new_password) {
         return res.status(400).json({ message: 'Current and new passwords are required.' });
     }
+
+    // Validate new password strength
+    const validationErrors = validatePassword(new_password);
+    if (validationErrors.length > 0) {
+        return res.status(400).json({ 
+            message: 'Password does not meet requirements.',
+            errors: validationErrors
+        });
+    }
+
     try {
+        // Get faculty
         const faculty = await userModel.findFacultyById(facultyId);
-        if (!faculty) { // Should not happen if authMiddleware works
+        if (!faculty) {
             return res.status(404).json({ message: 'Faculty not found.' });
         }
+
+        // Verify current password
         const isMatch = await comparePassword(current_password, faculty.password_hash);
         if (!isMatch) {
-            return res.status(401).json({ message: 'Current password incorrect.' });
+            return res.status(401).json({ message: 'Current password is incorrect.' });
         }
+
+        // Check if new password is same as current
+        if (current_password === new_password) {
+            return res.status(400).json({ message: 'New password must be different from current password.' });
+        }
+
+        // Hash new password
         const newHashedPassword = await hashPassword(new_password);
-        await userModel.updateFacultyPassword(facultyId, newHashedPassword);
+
+        // Update password with history check
+        try {
+            await userModel.updateFacultyPassword(facultyId, newHashedPassword);
+        } catch (error) {
+            if (error.message.includes('used recently')) {
+                return res.status(400).json({ message: error.message });
+            }
+            throw error;
+        }
+
         // Log the password change
-        await logFacultyActivity(facultyId, 'change_password', {});
+        await logFacultyActivity(facultyId, 'change_password', {
+            timestamp: new Date(),
+            success: true
+        });
+
         res.status(200).json({ message: 'Password updated successfully!' });
     } catch (error) {
         console.error('Error changing password:', error);
-        res.status(500).json({ message: 'Internal server error.' });
+        
+        // Log failed attempt
+        await logFacultyActivity(facultyId, 'change_password', {
+            timestamp: new Date(),
+            success: false,
+            error: error.message
+        }).catch(console.error); // Don't let logging failure affect response
+
+        res.status(500).json({ message: 'Internal server error during password change.' });
     }
 };
 
@@ -157,6 +222,42 @@ const getMyActivityLogs = async (req, res) => {
     res.json(result.rows);
 };
 
+// Check password expiry status
+const checkPasswordStatus = async (req, res) => {
+    const facultyId = req.user.id;
+    try {
+        const status = await userModel.checkPasswordExpiry(facultyId);
+        res.status(200).json(status);
+    } catch (error) {
+        console.error('Error checking password status:', error);
+        res.status(500).json({ message: 'Internal server error checking password status.' });
+    }
+};
+
+// Upload profile photo - simplified version
+const uploadProfilePhoto = async (req, res) => {
+    try {
+        // Check if file exists
+        if (!req.file) {
+            return res.status(400).json({ message: 'Please select a photo to upload.' });
+        }
+
+        const facultyId = req.user.id;
+        const photoUrl = `/uploads/faculty/photos/${req.file.filename}`;
+
+        // Update faculty profile with new photo URL
+        await userModel.updateFacultyProfile(facultyId, { photo_url: photoUrl });
+
+        res.status(200).json({
+            message: 'Profile photo updated successfully',
+            photo_url: photoUrl
+        });
+    } catch (error) {
+        console.error('Error uploading profile photo:', error);
+        res.status(500).json({ message: 'Failed to upload profile photo.' });
+    }
+};
+
 // Export all functions
 module.exports = {
     getMyProfile,
@@ -164,5 +265,7 @@ module.exports = {
     changeMyPassword,
     loginFaculty, // Make sure this is exported!
     getSubjectStudents,
-    getMyActivityLogs
+    getMyActivityLogs,
+    uploadProfilePhoto,
+    checkPasswordStatus // Ensure this is exported
 };
