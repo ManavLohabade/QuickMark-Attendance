@@ -6,6 +6,7 @@ const jwtSecret = process.env.JWT_SECRET || 'your_jwt_secret_key_here'; // Secre
 const jwtExpiresIn = process.env.JWT_EXPIRES_IN || '24h'; // Token expiration time with default
 
 // Generates a new JWT for a given payload (e.g., user ID, email).
+// NOTE: Always include role: 'faculty' in the payload for faculty tokens for consistent authorization checks.
 const generateToken = (payload) => {
     if (!jwtSecret) {
         throw new Error('JWT_SECRET is not configured');

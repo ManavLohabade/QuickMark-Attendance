@@ -6,7 +6,8 @@ const navItems = [
   { name: 'Home', icon: LayoutDashboard, route: '/dashboard' },
   { name: 'Attendance', icon: UserCheck, route: '/mark-attendance' },
   { name: 'Subjects', icon: Book, route: '/subjects' },
-  { name: 'Activity Log', icon: ListChecks, route: '/activity-log' }, // Added Activity Log
+  { name: 'Override Attendance', icon: ListChecks, route: '/override-attendance' },
+  { name: 'Activity Log', icon: ListChecks, route: '/activity-log' },
   { name: 'Settings', icon: Settings, route: '/settings' },
 ];
 

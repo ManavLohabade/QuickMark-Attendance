@@ -1,8 +1,8 @@
 // src/pages/LoginPage.jsx
 
 import React, { useState } from 'react';
-import { GanttChartSquare, Eye, EyeOff } from 'lucide-react';
-import axios from 'axios';
+import { GanttChartSquare, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
+import { authAPI } from '../api/auth';
 
 const GoogleIcon = (props) => (
     <svg
@@ -34,63 +34,53 @@ const GoogleIcon = (props) => (
     </svg>
 );
 
-const LoginPage = ({ onLogin }) => { // onLogin is correctly destructured here
+const LoginPage = ({ onLogin }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setError(''); // Clear previous errors
+        setError('');
+        setIsLoading(true);
 
         if (!email || !password) {
             setError('Please enter both email and password.');
+            setIsLoading(false);
             return;
         }
 
         try {
-            // Correct API endpoint for faculty login
-            const response = await axios.post('https://quickmark-backend-deploy1.onrender.com/api/auth/login', {
-                email,
-                password,
-            });
+            const response = await authAPI.login(email, password);
+            const { token, faculty } = response;
 
-            // Assuming successful login returns a token and faculty info
-            const { token, faculty } = response.data;
-
-            console.log('LoginPage - Received faculty data from backend:', faculty);
-            console.log('LoginPage - Storing token in localStorage:', token);
-
-            localStorage.setItem('token', token); // Store token
-            localStorage.setItem('userEmail', faculty.email); // Store user info
+            localStorage.setItem('token', token);
+            localStorage.setItem('userEmail', faculty.email);
             localStorage.setItem('userId', faculty.id);
             localStorage.setItem('userName', faculty.name);
 
-            // Construct user data object for the App component
             const userDataForApp = {
                 id: faculty.id,
                 name: faculty.name,
                 email: faculty.email,
-                // Add default/placeholder values for properties not returned by backend directly
-                designation: 'Faculty', // You might want to fetch this from backend later
-                subjectsTaught: [], // You might fetch this from backend later
-                avatar: 'https://placehold.co/100x100/E2E8F0/4A5568?text=' + faculty.name.charAt(0)
+                designation: faculty.designation || 'Faculty',
+                subjectsTaught: faculty.subjects || [],
+                avatar: faculty.photo_url || `https://placehold.co/100x100/E2E8F0/4A5568?text=${faculty.name.charAt(0)}`
             };
-            console.log('LoginPage - Passing userData to App via onLogin:', userDataForApp);
 
-            // Call onLogin prop with the token and faculty data
-            onLogin(token, userDataForApp); 
-
+            onLogin(token, userDataForApp);
         } catch (err) {
-            console.error('Login failed:', err.response ? err.response.data : err.message);
-            // Display specific error message from backend if available, otherwise a generic one
-            setError(err.response && err.response.data && err.response.data.message || 'Login failed. Please check your credentials.');
+            console.error('Login failed:', err);
+            setError(err.message || 'Login failed. Please check your credentials.');
+        } finally {
+            setIsLoading(false);
         }
     };
 
     return (
-        <div className="w-200 h-full flex flex-col items-center justify-center ">
+        <div className="w-200 h-full flex flex-col items-center justify-center">
             {/* Logo Section */}
             <div className="flex items-center justify-center h-20">
                 <GanttChartSquare className="h-8 w-8 text-primary" />
@@ -102,11 +92,16 @@ const LoginPage = ({ onLogin }) => { // onLogin is correctly destructured here
                     <h2 className="text-3xl font-bold text-text-primary">Faculty Login</h2>
                 </div>
 
-                <form onSubmit={handleSubmit}>
-                    {error && <div className="text-red-500 text-sm mb-4 text-center">{error}</div>}
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    {error && (
+                        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm flex items-center justify-center">
+                            <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                            {error}
+                        </div>
+                    )}
 
-                    <div className="mb-6">
-                        <label htmlFor="email" className="block text-sm font-medium text-text-secondary mb-2">
+                    <div className="space-y-2">
+                        <label htmlFor="email" className="block text-sm font-medium text-text-secondary">
                             Email
                         </label>
                         <input
@@ -115,13 +110,14 @@ const LoginPage = ({ onLogin }) => { // onLogin is correctly destructured here
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder="Enter your college email"
-                            className="w-full px-4 py-3 border border-border-color rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-center"
+                            className="w-full px-4 py-3 border border-border-color rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-center disabled:bg-gray-100 disabled:cursor-not-allowed"
                             required
+                            disabled={isLoading}
                         />
                     </div>
 
-                    <div className="mb-6">
-                        <label htmlFor="password" className="block text-sm font-medium text-text-secondary mb-2">
+                    <div className="space-y-2">
+                        <label htmlFor="password" className="block text-sm font-medium text-text-secondary">
                             Password
                         </label>
                         <div className="relative">
@@ -131,13 +127,15 @@ const LoginPage = ({ onLogin }) => { // onLogin is correctly destructured here
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 placeholder="Enter your password"
-                                className="text-center w-full px-4 py-3 border border-border-color rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                                className="text-center w-full px-4 py-3 border border-border-color rounded-lg focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed"
                                 required
+                                disabled={isLoading}
                             />
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
-                                className="absolute inset-y-0 right-0 px-4 flex items-center text-text-secondary"
+                                className="absolute inset-y-0 right-0 px-4 flex items-center text-text-secondary disabled:opacity-50"
+                                disabled={isLoading}
                             >
                                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                             </button>
@@ -146,9 +144,17 @@ const LoginPage = ({ onLogin }) => { // onLogin is correctly destructured here
 
                     <button
                         type="submit"
-                        className="w-full bg-primary text-white font-bold py-3 px-4 rounded-lg hover:bg-primary-dark transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                        disabled={isLoading}
+                        className="w-full bg-primary text-white font-bold py-3 px-4 rounded-lg hover:bg-primary-dark transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                     >
-                        Login
+                        {isLoading ? (
+                            <>
+                                <Loader2 className="animate-spin -ml-1 mr-3 h-5 w-5" />
+                                Logging in...
+                            </>
+                        ) : (
+                            'Login'
+                        )}
                     </button>
                 </form>
 
@@ -159,8 +165,9 @@ const LoginPage = ({ onLogin }) => { // onLogin is correctly destructured here
                 </div>
 
                 <button
-                    onClick={handleSubmit} // This will re-trigger form submit; consider a separate Google auth flow
-                    className="w-full flex justify-center items-center py-3 px-4 border border-border-color rounded-lg text-text-primary bg-white hover:bg-gray-50 transition-colors duration-300"
+                    onClick={() => {/* Implement Google auth */}}
+                    disabled={isLoading}
+                    className="w-full flex justify-center items-center py-3 px-4 border border-border-color rounded-lg text-text-primary bg-white hover:bg-gray-50 transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <GoogleIcon className="h-6 w-6 mr-3" />
                     <span className="font-medium">Sign in with Google</span>

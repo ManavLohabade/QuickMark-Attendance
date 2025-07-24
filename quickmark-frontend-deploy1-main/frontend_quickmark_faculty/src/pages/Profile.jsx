@@ -1,6 +1,8 @@
 import React from "react";
 import { LogOut, Mail, BookOpen } from 'lucide-react';
 
+const BACKEND_BASE_URL = 'http://localhost:3700';
+
 const Profile = ({ user, onLogout }) => {
   return (
     <div className="w-full max-w-4xl mx-auto">
@@ -11,7 +13,7 @@ const Profile = ({ user, onLogout }) => {
           {/* Avatar */}
           <img
             className="h-32 w-32 rounded-full object-cover mb-6 md:mb-0 md:mr-8 border-4 border-gray-200"
-            src={user.avatar}
+            src={user.avatar ? (user.avatar.startsWith('http') ? user.avatar : `${BACKEND_BASE_URL}${user.avatar}`) : 'https://placehold.co/128x128/E2E8F0/4A5568?text=U'}
             alt="User Avatar"
             onError={(e) => {
               e.target.onerror = null;

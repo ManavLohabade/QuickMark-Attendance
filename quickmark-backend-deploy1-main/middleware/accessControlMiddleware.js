@@ -10,7 +10,7 @@ const requireAdmin = (req, res, next) => {
 };
 
 const requireFaculty = (req, res, next) => {
-    if (req.user && req.user.isFaculty) {
+    if (req.user && req.user.role === 'faculty') {
         next();
     } else {
         res.status(403).json({ message: 'Forbidden: Faculty access required' });

@@ -13,17 +13,18 @@ const {
     submitAttendance,
     verifySession,
     getSessionLiveCount,
-    pauseAttendanceSession,  // Add this
-    resumeAttendanceSession  // Add this
+    pauseAttendanceSession,
+    resumeAttendanceSession,
+    getOverrideLog
 } = require('../controllers/attendanceController');
 
-const { authMiddleware, requireAdminOrFaculty, facultyAuthMiddleware } = require('../middleware/authMiddleware');
-const { requireAdmin } = require('../middleware/accessControlMiddleware');
+const { authMiddleware } = require('../middleware/authMiddleware');
+const { requireAdminOrFaculty, requireAdmin } = require('../middleware/accessControlMiddleware');
 
 // Protect routes using appropriate middleware
 
 // Override attendance – only Admin or Faculty can do this
-router.post('/override', facultyAuthMiddleware, overrideAttendance);
+router.post('/override', authMiddleware, overrideAttendance);
 
 // Start a new attendance session (Admin or Faculty)
 router.post('/start', authMiddleware, requireAdminOrFaculty, startAttendanceSession);
@@ -54,6 +55,9 @@ router.post('/verify-session', authMiddleware, verifySession);
 
 // Get live count for a session
 router.get('/:session_id/live-count', authMiddleware, requireAdminOrFaculty, getSessionLiveCount);
+
+// Get override log/history for a subject/student
+router.get('/overrides', authMiddleware, requireAdminOrFaculty, getOverrideLog);
 
 
 module.exports = router;

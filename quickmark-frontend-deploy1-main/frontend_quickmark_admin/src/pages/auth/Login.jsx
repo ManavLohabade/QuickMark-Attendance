@@ -46,21 +46,18 @@ const LoginPage = ({ onLogin }) => {
     };
 
     return (
-        <div className="w-200 h-full flex flex-col items-center justify-center ">
+        <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-100 via-white to-purple-100 animate-fade-in">
             {/* Logo Section */}
-            <div className="flex items-center justify-center mb-10">
+            <div className="flex items-center justify-center mb-10 animate-slide-down">
                 <GanttChartSquare className="h-8 w-8 text-primary" />
                 <h1 className="text-2xl font-bold ml-2 text-text-primary">QuickMark</h1>
             </div>
-
-            <div className="w-full max-w-md bg-sky-100 p-8 rounded-xl shadow-lg">
+            <div className="w-full max-w-md bg-sky-100 p-8 rounded-xl shadow-lg animate-fade-in-up">
                 <div className="text-center mb-8">
                     <h2 className="text-3xl font-bold text-text-primary">Admin Login</h2>
                 </div>
-
                 <form onSubmit={handleSubmit}>
-                    {error && <div className="text-red-500 text-sm mb-4 text-center">{error}</div>}
-
+                    {error && <div className="text-red-500 text-sm mb-4 text-center animate-pop-in">{error}</div>}
                     <div className="mb-6">
                         <label htmlFor="email" className="block text-sm font-medium text-text-secondary mb-2">
                             Email
@@ -76,7 +73,6 @@ const LoginPage = ({ onLogin }) => {
                             disabled={isLoading}
                         />
                     </div>
-
                     <div className="mb-6">
                         <label htmlFor="password" className="block text-sm font-medium text-text-secondary mb-2">
                             Password
@@ -102,22 +98,26 @@ const LoginPage = ({ onLogin }) => {
                             </button>
                         </div>
                     </div>
-
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className="w-full bg-primary text-white font-bold py-3 px-4 rounded-lg hover:bg-primary-dark transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full bg-primary text-white font-bold py-3 px-4 rounded-lg hover:bg-primary-dark transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                     >
-                        {isLoading ? 'Logging in...' : 'Login'}
+                        {isLoading ? (
+                            <span className="flex items-center gap-2">
+                                <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                                Logging in...
+                            </span>
+                        ) : (
+                            'Login'
+                        )}
                     </button>
                 </form>
-
                 <div className="my-8 flex items-center">
                     <div className="flex-grow border-t border-border-color"></div>
                     <span className="flex-shrink mx-4 text-text-secondary text-sm">Or continue with</span>
                     <div className="flex-grow border-t border-border-color"></div>
                 </div>
-
                 <button
                     onClick={() => alert('Google Login Not Implemented for Admin')}
                     disabled={isLoading}

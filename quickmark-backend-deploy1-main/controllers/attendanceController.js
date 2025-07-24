@@ -661,6 +661,25 @@ const resumeAttendanceSession = async (req, res) => {
     }
 };
 
+// Get override log/history for a subject/student
+const getOverrideLog = async (req, res) => {
+  const { subject_id, student_id } = req.query;
+  try {
+    const result = await pool.query(
+      `SELECT * FROM faculty_activity_logs
+       WHERE action = 'manual_override'
+         AND details->>'subject_id' = $1
+         AND details->>'student_id' = $2
+       ORDER BY created_at DESC
+       LIMIT 20`,
+      [subject_id, student_id]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch override log.' });
+  }
+};
+
 module.exports = {
     startAttendanceSession,
     generateNextQRCode,
@@ -674,5 +693,6 @@ module.exports = {
     verifySession,
     getSessionLiveCount,
     pauseAttendanceSession,  // Add this
-    resumeAttendanceSession  // Add this
+    resumeAttendanceSession,  // Add this
+    getOverrideLog
 };

@@ -18,6 +18,8 @@ const Navbar = ({ user, onNavigate, currentRoute }) => {
     }
   };
 
+  const BACKEND_BASE_URL = 'http://localhost:3700';
+
   return (
     <header className="flex items-center justify-end h-20 bg-white shadow-sm px-4 sm:px-6 md:px-8">
       <div className="flex items-center space-x-4">
@@ -34,7 +36,7 @@ const Navbar = ({ user, onNavigate, currentRoute }) => {
         >
           <img
             className="h-10 w-10 rounded-full object-cover"
-            src={user.avatar}
+            src={user.avatar ? (user.avatar.startsWith('http') ? user.avatar : `${BACKEND_BASE_URL}${user.avatar}`) : 'https://placehold.co/100x100/E2E8F0/4A5568?text=U'}
             alt="User Avatar"
             onError={(e) => { e.target.onerror = null; e.target.src="https://placehold.co/100x100/E2E8F0/4A5568?text=U"; }}
           />

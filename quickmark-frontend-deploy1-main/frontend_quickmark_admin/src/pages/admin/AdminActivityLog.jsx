@@ -43,7 +43,7 @@ export default function AdminActivityLog() {
       });
 
       const response = await axios.get(
-        `${API_BASE_URL}/api/admin/audit-logs?${params.toString()}`,
+        `${API_BASE_URL}/admin/audit-logs?${params.toString()}`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }

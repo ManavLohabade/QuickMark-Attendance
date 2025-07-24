@@ -87,20 +87,78 @@ const updateFacultyProfile = async (facultyId, updates) => {
     }
 };
 
-// Update faculty password
-const updateFacultyPassword = async (facultyId, newHashedPassword) => {
+// Check if password exists in history
+const checkPasswordHistory = async (facultyId, newPasswordHash) => {
     const query = `
-        UPDATE faculties
-        SET password_hash = $1, updated_at = CURRENT_TIMESTAMP
-        WHERE faculty_id = $2
-        RETURNING faculty_id, name, email;
+        SELECT EXISTS (
+            SELECT 1 FROM faculty_password_history
+            WHERE faculty_id = $1 AND password_hash = $2
+        ) as password_exists;
     `;
     try {
-        const result = await pool.query(query, [newHashedPassword, facultyId]);
-        return result.rows[0] || null;
+        const result = await pool.query(query, [facultyId, newPasswordHash]);
+        return result.rows[0].password_exists;
     } catch (error) {
-        console.error('Error updating faculty password:', error);
-        throw new Error('Database password update failed.');
+        console.error('Error checking password history:', error);
+        throw new Error('Database query failed.');
+    }
+};
+
+// Add password to history
+const addPasswordToHistory = async (facultyId, passwordHash) => {
+    const query = `
+        INSERT INTO faculty_password_history (faculty_id, password_hash)
+        VALUES ($1, $2)
+        RETURNING history_id;
+    `;
+    try {
+        const result = await pool.query(query, [facultyId, passwordHash]);
+        return result.rows[0];
+    } catch (error) {
+        console.error('Error adding password to history:', error);
+        throw new Error('Database insertion failed.');
+    }
+};
+
+// Update faculty password with history check
+const updateFacultyPassword = async (facultyId, newHashedPassword) => {
+    // Start a transaction
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Check if password exists in history
+        const exists = await checkPasswordHistory(facultyId, newHashedPassword);
+        if (exists) {
+            throw new Error('Password has been used recently. Please choose a different password.');
+        }
+
+        // Update password
+        const updateQuery = `
+            UPDATE faculties
+            SET 
+                password_hash = $1, 
+                updated_at = CURRENT_TIMESTAMP
+            WHERE faculty_id = $2
+            RETURNING faculty_id;
+        `;
+        const updateResult = await client.query(updateQuery, [newHashedPassword, facultyId]);
+
+        // Add to password history
+        const historyQuery = `
+            INSERT INTO faculty_password_history (faculty_id, password_hash)
+            VALUES ($1, $2);
+        `;
+        await client.query(historyQuery, [facultyId, newHashedPassword]);
+
+        // Commit transaction
+        await client.query('COMMIT');
+        return updateResult.rows[0];
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
     }
 };
 
@@ -162,6 +220,11 @@ const removeSubjectFromFaculty = async (facultyId, subjectId) => {
     }
 };
 
+// Check if faculty's password is expired (dummy logic, always returns not expired)
+const checkPasswordExpiry = async (facultyId) => {
+    return { password_expired: false };
+};
+
 module.exports = {
     findFacultyByEmail,
     findFacultyById,
@@ -171,5 +234,7 @@ module.exports = {
     getFacultySubjects,
     assignSubjectToFaculty,
     removeSubjectFromFaculty,
-    findFacultyWithDepartmentById
+    findFacultyWithDepartmentById,
+    checkPasswordHistory,
+    checkPasswordExpiry
 };

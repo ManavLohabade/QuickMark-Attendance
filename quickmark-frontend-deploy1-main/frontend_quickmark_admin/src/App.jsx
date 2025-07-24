@@ -20,6 +20,8 @@ import FacultyManagement from './pages/admin/FacultyManagement';
 import BulkEnrollStudents from './pages/admin/BulkEnrollStudents';
 import CoreEnrollments from './pages/enrollments/CoreEnrollments';
 import axios from "axios";
+import Home from './pages/Home';
+import SystemHealth from './pages/SystemHealth';
 
 // --- Import API utilities ---
 import { 
@@ -518,14 +520,7 @@ export default function App() {
    
     switch (currentPage) {
       case "Home":
-        return <Dashboard 
-          allStudents={students} 
-          allSubjects={subjects} 
-          allFaculty={faculty} 
-          allDepartments={departments}
-          dashboardStats={dashboardStats}
-          navigateTo={navigateTo}
-        />;
+        return <Home />;
       
       case "Subjects":
         return (
@@ -648,14 +643,7 @@ export default function App() {
         return <CoreEnrollments departments={departments} />;
 
       default:
-        return <Dashboard 
-          allStudents={students} 
-          allSubjects={subjects} 
-          allFaculty={faculty} 
-          allDepartments={departments}
-          dashboardStats={dashboardStats}
-          navigateTo={navigateTo}
-        />;
+        return <Home />;
     }
   };
 
@@ -681,10 +669,124 @@ export default function App() {
     }
   };
 
+  // --- Render Logic ---
   if (!isAuthenticated) {
     return <Login onLogin={handleLogin} />;
   }
-
+  // --- Render Logic ---
+  let pageContent = null;
+  switch (currentPage) {
+    case 'Home':
+      pageContent = <Home />;
+      break;
+    case 'Dashboard':
+      pageContent = <Dashboard navigateTo={navigateTo} />;
+      break;
+    case 'Degree':
+      pageContent = <DegreesManager />;
+      break;
+    case 'Departments':
+      pageContent = <DepartmentPage 
+        departments={departments} 
+        degrees={degrees}
+        onAdd={async ({ name, degree_id }) => {
+          try {
+            await departmentAPI.create({ name, degree_id });
+            await fetchDepartments();
+            showNotification('Department created successfully', 'success');
+          } catch (error) {
+            showNotification(error.message || 'Failed to create department', 'error');
+            throw error;
+          }
+        }}
+        onEdit={async ({ department_id, name, degree_id }) => {
+          try {
+            await departmentAPI.update(department_id, { name, degree_id });
+            await fetchDepartments();
+            showNotification('Department updated successfully', 'success');
+          } catch (error) {
+            showNotification(error.message || 'Failed to update department', 'error');
+            throw error;
+          }
+        }}
+        onDelete={handleDeleteDepartment} 
+        onSelectDepartment={handleNavigateWithFilter}
+        pagination={pagination.departments}
+        onPageChange={(page) => handlePageChange('departments', page)}
+      />;
+      break;
+    case 'Faculty':
+      pageContent = (
+        <FacultyList
+          faculty={faculty}
+          onAddFaculty={handleAddFaculty}
+          onUpdateFaculty={handleUpdateFaculty}
+          onDeleteFaculty={handleDeleteFaculty}
+          pagination={pagination.faculty}
+          onPageChange={(page) => handlePageChange('faculty', page)}
+          allDepartments={departments}
+          allSubjects={subjects}
+          onAssignSubjectToFaculty={handleAssignSubjectToFaculty}
+          onRemoveSubjectFromFaculty={handleRemoveSubjectFromFaculty}
+          onGetFacultyAssignments={handleGetFacultyAssignments}
+        />
+      );
+      break;
+    case 'FacultyManagement':
+      pageContent = <FacultyManagement />;
+      break;
+    case 'Subjects':
+      pageContent = <SubjectsList
+        subjects={subjects}
+        allDepartments={departments}
+        allFaculty={faculty}
+        onViewDetails={viewSubjectDetails}
+        onAddSubject={handleAddSubject}
+        onUpdateSubject={handleUpdateSubject}
+        initialDepartmentFilter={activeFilter?.Department || ""}
+        pagination={pagination.subjects}
+        onPageChange={(page) => handlePageChange('subjects', page)}
+      />;
+      break;
+    case 'Students':
+      pageContent = <StudentsList 
+        students={students} 
+        onAdd={() => { setSelectedStudent(null); setCurrentPage("AddEditStudent"); }} 
+        onEdit={(student) => { setSelectedStudent(student); setCurrentPage("AddEditStudent"); }} 
+        onDelete={handleDeleteStudent}
+        pagination={pagination.students}
+        onPageChange={(page) => handlePageChange('students', page)}
+      />;
+      break;
+    case 'Enrollments':
+      pageContent = <CoreEnrollments departments={departments} />;
+      break;
+    case 'Defaulters':
+      pageContent = <LowAttendance allStudents={defaulters} />;
+      break;
+    case 'FaceRegister':
+      pageContent = <FaceRegister />;
+      break;
+    case 'AdminActivityLog':
+      pageContent = <AdminActivityLog />;
+      break;
+    case 'Settings':
+      pageContent = <Settings 
+        departments={departments}
+        faculty={faculty}
+        students={students}
+        subjects={subjects}
+        attendanceThreshold={attendanceThreshold}
+        onThresholdChange={handleThresholdChange}
+      />;
+      break;
+    // Prepare for System Health page
+    case 'SystemHealth':
+      pageContent = <SystemHealth />;
+      break;
+    default:
+      pageContent = <Home />;
+  }
   return (
     <>
       {notification && (
@@ -702,7 +804,7 @@ export default function App() {
         onBack={handleBack}
         onLogout={handleLogout}
       >
-        {renderContent()}
+        {pageContent}
       </MainLayout>
     </>
   );
