@@ -1,9 +1,10 @@
+// lib/presentation/screens/attendance_history/attendance_history_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../bloc/attendance/attendance_bloc.dart';
-import '../../bloc/attendance/attendance_event.dart';
-import '../../bloc/attendance/attendance_state.dart';
+import 'package:intl/intl.dart';
+import '../../bloc/attendance/attendance.dart';
 import '../../widgets/attendance_record_card.dart';
+import '../../../core/utils/app_theme.dart';
 
 class AttendanceHistoryScreen extends StatefulWidget {
   static const routeName = '/attendance-history';
@@ -11,8 +12,7 @@ class AttendanceHistoryScreen extends StatefulWidget {
   const AttendanceHistoryScreen({super.key});
 
   @override
-  State<AttendanceHistoryScreen> createState() =>
-      _AttendanceHistoryScreenState();
+  State<AttendanceHistoryScreen> createState() => _AttendanceHistoryScreenState();
 }
 
 class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
@@ -20,74 +20,37 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
   String? _selectedMonth;
 
   final List<String> _months = [
-    'All Months',
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
+    'All Time', 'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
   @override
   void initState() {
     super.initState();
-    context.read<AttendanceBloc>().add(const LoadAttendanceCalendarEvent());
+    _filterAttendance();
   }
 
   void _filterAttendance() {
-    context.read<AttendanceBloc>().add(
-      LoadAttendanceCalendarEvent(
+    final now = DateTime.now();
+    final monthIndex = _selectedMonth != null ? _months.indexOf(_selectedMonth!) : 0;
+    final startDate = (monthIndex > 0) ? DateTime(now.year, monthIndex, 1) : null;
+    final endDate = (monthIndex > 0) ? DateTime(now.year, monthIndex + 1, 0) : null;
+    
+    context.read<AttendanceBloc>().add(LoadAttendanceCalendarEvent(
         subjectId: _selectedSubjectId,
-        startDate: _getStartDateForMonth(_selectedMonth),
-        endDate: _getEndDateForMonth(_selectedMonth),
-      ),
-    );
-  }
-
-  String? _getStartDateForMonth(String? month) {
-    if (month == null || month == 'All Months') return null;
-    final now = DateTime.now();
-    final monthIndex = _months.indexOf(month);
-    if (monthIndex <= 0) return null;
-    return DateTime(now.year, monthIndex, 1).toIso8601String();
-  }
-
-  String? _getEndDateForMonth(String? month) {
-    if (month == null || month == 'All Months') return null;
-    final now = DateTime.now();
-    final monthIndex = _months.indexOf(month);
-    if (monthIndex <= 0) return null;
-    return DateTime(now.year, monthIndex + 1, 0).toIso8601String();
+        startDate: startDate?.toIso8601String(),
+        endDate: endDate?.toIso8601String(),
+      ));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: const Text(
-          'Attendance History',
-          style: TextStyle(
-            fontFamily: 'Roboto',
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        backgroundColor: const Color(0xFF4A90E2),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
+        title: const Text('Attendance History'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.filter_list, color: Colors.white),
+            icon: const Icon(Icons.filter_list_alt),
             onPressed: _showFilterDialog,
             tooltip: 'Filter',
           ),
@@ -95,23 +58,20 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
       ),
       body: Column(
         children: [
-          // Filter Summary
-          if (_selectedSubjectId != null || _selectedMonth != null)
+          if (_selectedSubjectId != null || (_selectedMonth != null && _selectedMonth != 'All Time'))
             _buildFilterSummary(),
-
-          // Attendance List
           Expanded(
             child: BlocBuilder<AttendanceBloc, AttendanceState>(
               builder: (context, state) {
                 if (state is AttendanceLoading) {
-                  return _buildLoadingView();
-                } else if (state is AttendanceCalendarLoaded) {
-                  if (state.records.isEmpty) {
-                    return _buildEmptyView();
-                  }
-                  return _buildAttendanceList(state.records);
-                } else if (state is AttendanceError) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (state is AttendanceError) {
                   return _buildErrorView(state.message);
+                }
+                if (state is AttendanceCalendarLoaded) {
+                  if (state.records.isEmpty) return _buildEmptyView();
+                  return _buildAttendanceList(state.records);
                 }
                 return _buildEmptyView();
               },
@@ -124,28 +84,16 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
 
   Widget _buildFilterSummary() {
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF4A90E2).withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: const Color(0xFF4A90E2).withValues(alpha: .3),
-        ),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: AppTheme.primaryColor.withOpacity(0.1),
       child: Row(
         children: [
-          const Icon(Icons.filter_list, color: Color(0xFF4A90E2), size: 20),
+          Icon(Icons.filter_alt, color: AppTheme.primaryColor, size: 20),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Filters: ${_selectedMonth ?? 'All Months'}${_selectedSubjectId != null ? ' • Subject Filter' : ''}',
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xFF4A90E2),
-                fontWeight: FontWeight.w600,
-                fontFamily: 'Roboto',
-              ),
+              'Filters: ${_selectedMonth ?? 'All Time'}${_selectedSubjectId != null ? ' • Subject: $_selectedSubjectId' : ''}',
+              style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.w600),
             ),
           ),
           TextButton(
@@ -156,14 +104,7 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
               });
               _filterAttendance();
             },
-            child: const Text(
-              'Clear',
-              style: TextStyle(
-                color: Color(0xFF4A90E2),
-                fontWeight: FontWeight.bold,
-                fontFamily: 'Roboto',
-              ),
-            ),
+            child: const Text('Clear'),
           ),
         ],
       ),
@@ -171,82 +112,50 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
   }
 
   Widget _buildAttendanceList(List records) {
-    // Group records by date
     final Map<String, List> groupedRecords = {};
     for (final record in records) {
-      final dateKey = _formatDate(record.date);
-      if (!groupedRecords.containsKey(dateKey)) {
-        groupedRecords[dateKey] = [];
-      }
-      groupedRecords[dateKey]!.add(record);
+      final dateKey = DateFormat('yyyy-MM-dd').format(record.date);
+      groupedRecords.putIfAbsent(dateKey, () => []).add(record);
     }
-
-    final sortedDates = groupedRecords.keys.toList()
-      ..sort((a, b) => b.compareTo(a)); // Most recent first
+    
+    final sortedDates = groupedRecords.keys.toList()..sort((a,b) => b.compareTo(a));
 
     return RefreshIndicator(
-      onRefresh: () async {
-        context.read<AttendanceBloc>().add(const LoadAttendanceCalendarEvent());
-      },
-      color: const Color(0xFF4A90E2),
+      onRefresh: () async => _filterAttendance(),
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: sortedDates.length,
         itemBuilder: (context, index) {
           final date = sortedDates[index];
           final dayRecords = groupedRecords[date]!;
-
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Date Header
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
                 child: Text(
                   _formatDateHeader(date),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF333333),
-                    fontFamily: 'Roboto',
-                  ),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                 ),
               ),
-
-              // Records for this date
-              ...dayRecords.map(
-                (record) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: AttendanceRecordCard(record: record),
-                ),
-              ),
-
-              const SizedBox(height: 8),
+              ...dayRecords.map((record) => AttendanceRecordCard(record: record)),
             ],
           );
         },
       ),
     );
   }
-
-  Widget _buildLoadingView() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(color: Color(0xFF4A90E2)),
-          SizedBox(height: 16),
-          Text(
-            'Loading attendance history...',
-            style: TextStyle(
-              fontSize: 16,
-              color: Color(0xFF333333),
-              fontFamily: 'Roboto',
-            ),
-          ),
-        ],
-      ),
-    );
+  
+  String _formatDateHeader(String dateStr) {
+    final date = DateTime.parse(dateStr);
+    final now = DateTime.now();
+    if (date.year == now.year && date.month == now.month && date.day == now.day) {
+      return 'Today - ${DateFormat.yMMMMd().format(date)}';
+    }
+    if (date.year == now.year && date.month == now.month && date.day == now.day - 1) {
+      return 'Yesterday - ${DateFormat.yMMMMd().format(date)}';
+    }
+    return DateFormat.yMMMMd().format(date);
   }
 
   Widget _buildEmptyView() {
@@ -254,101 +163,31 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.history, size: 80, color: Colors.grey[400]),
+          Icon(Icons.history_toggle_off, size: 80, color: Colors.grey[400]),
           const SizedBox(height: 16),
-          Text(
-            'No attendance records found',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey[600],
-              fontFamily: 'Roboto',
-            ),
-          ),
+          Text('No Records Found', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 8),
-          Text(
-            'Start attending classes to see your records here',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[500],
-              fontFamily: 'Roboto',
-            ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4A90E2),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            icon: const Icon(Icons.face),
-            label: const Text(
-              'Mark Attendance',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontFamily: 'Roboto',
-              ),
-            ),
-          ),
+          Text('Try adjusting your filters or mark attendance.', style: TextStyle(color: Colors.grey[600])),
         ],
       ),
     );
   }
-
+  
   Widget _buildErrorView(String message) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.error_outline, size: 80, color: Color(0xFFD0021B)),
+          Icon(Icons.error_outline, size: 80, color: AppTheme.errorColor),
           const SizedBox(height: 16),
-          Text(
-            'Error loading attendance',
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFFD0021B),
-              fontFamily: 'Roboto',
-            ),
-          ),
+          Text('An Error Occurred', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 8),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-              fontFamily: 'Roboto',
-            ),
-          ),
-          const SizedBox(height: 24),
+          Text(message, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600])),
+           const SizedBox(height: 16),
           ElevatedButton.icon(
-            onPressed: () {
-              context.read<AttendanceBloc>().add(
-                const LoadAttendanceCalendarEvent(),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4A90E2),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
+            onPressed: _filterAttendance,
             icon: const Icon(Icons.refresh),
-            label: const Text(
-              'Retry',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontFamily: 'Roboto',
-              ),
-            ),
+            label: const Text('Retry'),
           ),
         ],
       ),
@@ -365,72 +204,32 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text(
-                'Filter Attendance',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'Roboto',
-                ),
-              ),
+              title: const Text('Filter Attendance'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Month',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontFamily: 'Roboto',
-                    ),
-                  ),
-                  const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
                     value: tempMonth,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      hintText: 'Select month',
-                    ),
+                    hint: const Text('Select Month'),
+                    decoration: const InputDecoration(labelText: 'Month'),
                     items: _months.map((month) {
-                      return DropdownMenuItem(
-                        value: month == 'All Months' ? null : month,
-                        child: Text(month),
-                      );
+                      return DropdownMenuItem(value: month, child: Text(month));
                     }).toList(),
-                    onChanged: (value) {
-                      setDialogState(() {
-                        tempMonth = value;
-                      });
-                    },
+                    onChanged: (value) => setDialogState(() => tempMonth = value),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Subject (Optional)',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontFamily: 'Roboto',
-                    ),
-                  ),
-                  const SizedBox(height: 8),
                   TextFormField(
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      hintText: 'Enter subject ID (optional)',
-                    ),
-                    keyboardType: TextInputType.number,
                     initialValue: tempSubjectId?.toString(),
-                    onChanged: (value) {
-                      tempSubjectId = int.tryParse(value);
-                    },
+                    decoration: const InputDecoration(labelText: 'Subject ID (optional)'),
+                    keyboardType: TextInputType.number,
+                    onChanged: (val) => tempSubjectId = int.tryParse(val),
                   ),
                 ],
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text(
-                    'Cancel',
-                    style: TextStyle(fontFamily: 'Roboto'),
-                  ),
+                  child: const Text('Cancel'),
                 ),
                 ElevatedButton(
                   onPressed: () {
@@ -441,17 +240,7 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
                     _filterAttendance();
                     Navigator.pop(context);
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4A90E2),
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text(
-                    'Apply',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Roboto',
-                    ),
-                  ),
+                  child: const Text('Apply'),
                 ),
               ],
             );
@@ -459,52 +248,5 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
         );
       },
     );
-  }
-
-  String _formatDate(dynamic date) {
-    if (date is DateTime) {
-      return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-    } else if (date is String) {
-      return date.split('T')[0]; // Extract date part from ISO string
-    }
-    return date.toString();
-  }
-
-  String _formatDateHeader(String date) {
-    try {
-      final dateTime = DateTime.parse(date);
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      final yesterday = today.subtract(const Duration(days: 1));
-      final recordDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
-
-      if (recordDate == today) {
-        return 'Today - ${_formatDisplayDate(dateTime)}';
-      } else if (recordDate == yesterday) {
-        return 'Yesterday - ${_formatDisplayDate(dateTime)}';
-      } else {
-        return _formatDisplayDate(dateTime);
-      }
-    } catch (e) {
-      return date;
-    }
-  }
-
-  String _formatDisplayDate(DateTime date) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 }

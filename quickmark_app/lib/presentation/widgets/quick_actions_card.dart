@@ -1,3 +1,6 @@
+// lib/presentation/widgets/quick_actions_card.dart
+// MODIFIED TO BE THEME-AWARE
+
 import 'package:flutter/material.dart';
 
 class QuickActionsCard extends StatelessWidget {
@@ -16,12 +19,12 @@ class QuickActionsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context); // Get the current theme
+
     return Card(
-      elevation: 4, // card elevation from design.json
+      elevation: 2,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(
-          12,
-        ), // card borderRadius from design.json
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -30,19 +33,17 @@ class QuickActionsCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.flash_on,
-                  color: Color(0xFF4A90E2), // primaryColor from design.json
+                  color: theme.colorScheme.primary,
                   size: 24,
                 ),
                 const SizedBox(width: 8),
-                const Text(
+                Text(
                   'Quick Actions',
-                  style: TextStyle(
-                    fontSize: 20, // title fontSize from design.json
+                  style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF333333), // textColor from design.json
-                    fontFamily: 'Roboto',
+                    // ## FIX: Removed hardcoded dark color ##
                   ),
                 ),
               ],
@@ -52,18 +53,20 @@ class QuickActionsCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: _buildActionButton(
+                    context,
                     'Face Scan',
                     Icons.face_outlined,
-                    const Color(0xFF50E3C2), // accentColor from design.json
+                    theme.colorScheme.primary,
                     onMarkAttendance,
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: _buildActionButton(
+                    context,
                     'QR Scan',
                     Icons.qr_code_scanner,
-                    const Color(0xFF4A90E2), // primaryColor from design.json
+                    theme.colorScheme.secondary,
                     onScanQR ?? () {},
                   ),
                 ),
@@ -74,18 +77,20 @@ class QuickActionsCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: _buildActionButton(
+                    context,
                     'View History',
                     Icons.history,
-                    const Color(0xFF8E8E93), // secondaryColor
+                    Colors.grey.shade600,
                     onViewHistory,
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: _buildActionButton(
+                    context,
                     'View Profile',
                     Icons.person,
-                    const Color(0xFF8E8E93), // secondaryColor
+                    Colors.grey.shade600,
                     onViewProfile,
                   ),
                 ),
@@ -98,6 +103,7 @@ class QuickActionsCard extends StatelessWidget {
   }
 
   Widget _buildActionButton(
+    BuildContext context,
     String label,
     IconData icon,
     Color color,
@@ -108,12 +114,10 @@ class QuickActionsCard extends StatelessWidget {
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
         foregroundColor: Colors.white,
-        elevation: 2,
+        elevation: 1,
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(
-            8,
-          ), // button borderRadius from design.json
+          borderRadius: BorderRadius.circular(12),
         ),
       ),
       child: Column(
@@ -127,7 +131,6 @@ class QuickActionsCard extends StatelessWidget {
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              fontFamily: 'Roboto',
             ),
           ),
         ],
