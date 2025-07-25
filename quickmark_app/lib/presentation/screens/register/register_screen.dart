@@ -1,8 +1,10 @@
+// lib/presentation/screens/register/register_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../bloc/auth/auth.dart';
 import '../../widgets/app_logo.dart';
-import '../../widgets/app_error_widget.dart';
+import '../../../core/utils/app_theme.dart';
+import '../face_registration/face_registration_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   static const routeName = '/register';
@@ -26,7 +28,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
-  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -43,320 +44,177 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   void _handleRegister() {
     if (_formKey.currentState?.validate() ?? false) {
-      // For now, navigate to face registration
-      // In the future, you'll integrate with AuthBloc
-      Navigator.pushNamed(context, '/face-registration');
+      context.read<AuthBloc>().add(
+            RegisterEvent(
+              rollNumber: _rollNumberController.text.trim(),
+              name: _nameController.text.trim(),
+              email: _emailController.text.trim(),
+              password: _passwordController.text,
+              departmentId: int.parse(_departmentController.text.trim()),
+              currentYear: int.parse(_yearController.text.trim()),
+              section: _sectionController.text.trim(),
+            ),
+          );
     }
-  }
-
-  void _navigateToLogin() {
-    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(
-        0xFFF5F5F5,
-      ), // backgroundColor from design.json
-      body: BlocConsumer<AuthBloc, AuthState>(
+      body: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) {
-          setState(() {
-            _isLoading = state is AuthLoading;
-          });
-
           if (state is AuthRegistrationSuccess) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
-                backgroundColor: const Color(
-                  0xFF50E3C2,
-                ), // accentColor from design.json
+                backgroundColor: AppTheme.secondaryColor,
                 behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
               ),
             );
-            // Navigate to face registration after successful account creation
-            Navigator.pushReplacementNamed(context, '/face-registration');
+            Navigator.pushReplacementNamed(context, FaceRegistrationScreen.routeName);
           } else if (state is AuthError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
-                backgroundColor: const Color(
-                  0xFFD0021B,
-                ), // errorColor from design.json
+                backgroundColor: AppTheme.errorColor,
                 behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
               ),
             );
           }
         },
-        builder: (context, state) {
-          return SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 20),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppTheme.primaryColor.withOpacity(0.8),
+                AppTheme.primaryColor,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+                child: BlocBuilder<AuthBloc, AuthState>(
+                  builder: (context, state) {
+                    final isLoading = state is AuthLoading;
 
-                    // App Logo
-                    const Center(child: AppLogo(size: 100)),
-
-                    const SizedBox(height: 24),
-
-                    // Welcome Text
-                    const Text(
-                      'Create Account',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF333333), // textColor from design.json
-                        fontFamily: 'Roboto',
+                    return Card(
+                      elevation: 8,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20)),
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const AppLogo(size: 80),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Create Account',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineSmall
+                                    ?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Get started with QuickMark',
+                                style: Theme.of(context).textTheme.bodyLarge,
+                              ),
+                              const SizedBox(height: 24),
+                              _buildTextField(
+                                  controller: _nameController,
+                                  label: 'Full Name',
+                                  prefixIcon: Icons.person_outline,
+                                  enabled: !isLoading),
+                              const SizedBox(height: 16),
+                              _buildTextField(
+                                  controller: _rollNumberController,
+                                  label: 'Roll Number',
+                                  prefixIcon: Icons.badge_outlined,
+                                  enabled: !isLoading),
+                              const SizedBox(height: 16),
+                              _buildTextField(
+                                  controller: _emailController,
+                                  label: 'Email',
+                                  prefixIcon: Icons.email_outlined,
+                                  keyboardType: TextInputType.emailAddress,
+                                  enabled: !isLoading),
+                              const SizedBox(height: 16),
+                               Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildTextField(
+                                      controller: _departmentController,
+                                      label: 'Dept. ID',
+                                      prefixIcon: Icons.school_outlined,
+                                      keyboardType: TextInputType.number,
+                                      enabled: !isLoading,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: _buildTextField(
+                                      controller: _yearController,
+                                      label: 'Year',
+                                      prefixIcon: Icons.calendar_today_outlined,
+                                      keyboardType: TextInputType.number,
+                                      enabled: !isLoading,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                   Expanded(
+                                    child: _buildTextField(
+                                      controller: _sectionController,
+                                      label: 'Section',
+                                      prefixIcon: Icons.class_outlined,
+                                      enabled: !isLoading,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              _buildTextField(
+                                controller: _passwordController,
+                                label: 'Password',
+                                prefixIcon: Icons.lock_outline,
+                                isPassword: true,
+                                isPasswordVisible: _isPasswordVisible,
+                                onVisibilityToggle: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+                                enabled: !isLoading,
+                                validator: (val) => val != null && val.length >= 6 ? null : 'Password must be 6+ characters',
+                              ),
+                              const SizedBox(height: 16),
+                              _buildTextField(
+                                controller: _confirmPasswordController,
+                                label: 'Confirm Password',
+                                prefixIcon: Icons.lock_outline,
+                                isPassword: true,
+                                isPasswordVisible: _isConfirmPasswordVisible,
+                                onVisibilityToggle: () => setState(() => _isConfirmPasswordVisible = !_isConfirmPasswordVisible),
+                                enabled: !isLoading,
+                                validator: (val) => val == _passwordController.text ? null : 'Passwords do not match',
+                              ),
+                              const SizedBox(height: 32),
+                              _buildRegisterButton(isLoading),
+                               const SizedBox(height: 16),
+                              _buildLoginLink(),
+                            ],
+                          ),
+                        ),
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    Text(
-                      'Register for QuickMark attendance',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: const Color(0xFF333333).withValues(alpha: 0.7),
-                        fontFamily: 'Roboto',
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Roll Number Field
-                    _buildTextField(
-                      controller: _rollNumberController,
-                      label: 'Roll Number',
-                      hint: 'Enter your roll number',
-                      prefixIcon: Icons.badge_outlined,
-                      validator: (value) {
-                        if (value?.isEmpty ?? true) {
-                          return 'Please enter your roll number';
-                        }
-                        if (value!.length < 3) {
-                          return 'Roll number must be at least 3 characters';
-                        }
-                        return null;
-                      },
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Name Field
-                    _buildTextField(
-                      controller: _nameController,
-                      label: 'Full Name',
-                      hint: 'Enter your full name',
-                      prefixIcon: Icons.person_outline,
-                      validator: (value) {
-                        if (value?.isEmpty ?? true) {
-                          return 'Please enter your full name';
-                        }
-                        if (value!.length < 2) {
-                          return 'Name must be at least 2 characters';
-                        }
-                        return null;
-                      },
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Email Field
-                    _buildTextField(
-                      controller: _emailController,
-                      label: 'Email Address',
-                      hint: 'Enter your email address',
-                      prefixIcon: Icons.email_outlined,
-                      validator: (value) {
-                        if (value?.isEmpty ?? true) {
-                          return 'Please enter your email address';
-                        }
-                        if (!RegExp(
-                          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                        ).hasMatch(value!)) {
-                          return 'Please enter a valid email address';
-                        }
-                        return null;
-                      },
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Department Field
-                    _buildTextField(
-                      controller: _departmentController,
-                      label: 'Department ID',
-                      hint: 'Enter department ID (e.g., 1)',
-                      prefixIcon: Icons.business_outlined,
-                      validator: (value) {
-                        if (value?.isEmpty ?? true) {
-                          return 'Please enter department ID';
-                        }
-                        if (int.tryParse(value!) == null) {
-                          return 'Department ID must be a number';
-                        }
-                        return null;
-                      },
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Year and Section Row
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildTextField(
-                            controller: _yearController,
-                            label: 'Year',
-                            hint: 'e.g., 2024',
-                            prefixIcon: Icons.calendar_today_outlined,
-                            validator: (value) {
-                              if (value?.isEmpty ?? true) {
-                                return 'Required';
-                              }
-                              if (int.tryParse(value!) == null) {
-                                return 'Must be number';
-                              }
-                              return null;
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildTextField(
-                            controller: _sectionController,
-                            label: 'Section',
-                            hint: 'e.g., A',
-                            prefixIcon: Icons.class_outlined,
-                            validator: (value) {
-                              if (value?.isEmpty ?? true) {
-                                return 'Required';
-                              }
-                              return null;
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Password Field
-                    _buildTextField(
-                      controller: _passwordController,
-                      label: 'Password',
-                      hint: 'Enter your password',
-                      prefixIcon: Icons.lock_outline,
-                      isPassword: true,
-                      isPasswordVisible: _isPasswordVisible,
-                      onPasswordVisibilityToggle: () {
-                        setState(() {
-                          _isPasswordVisible = !_isPasswordVisible;
-                        });
-                      },
-                      validator: (value) {
-                        if (value?.isEmpty ?? true) {
-                          return 'Please enter your password';
-                        }
-                        if (value!.length < 6) {
-                          return 'Password must be at least 6 characters';
-                        }
-                        return null;
-                      },
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Confirm Password Field
-                    _buildTextField(
-                      controller: _confirmPasswordController,
-                      label: 'Confirm Password',
-                      hint: 'Confirm your password',
-                      prefixIcon: Icons.lock_outline,
-                      isPassword: true,
-                      isPasswordVisible: _isConfirmPasswordVisible,
-                      onPasswordVisibilityToggle: () {
-                        setState(() {
-                          _isConfirmPasswordVisible =
-                              !_isConfirmPasswordVisible;
-                        });
-                      },
-                      validator: (value) {
-                        if (value?.isEmpty ?? true) {
-                          return 'Please confirm your password';
-                        }
-                        if (value != _passwordController.text) {
-                          return 'Passwords do not match';
-                        }
-                        return null;
-                      },
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Register Button
-                    _buildRegisterButton(),
-
-                    const SizedBox(height: 24),
-
-                    // Login Link
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Already have an account? ',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: const Color(
-                              0xFF333333,
-                            ).withValues(alpha: 0.7),
-                            fontFamily: 'Roboto',
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: _navigateToLogin,
-                          child: const Text(
-                            'Login here',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Color(
-                                0xFF4A90E2,
-                              ), // primaryColor from design.json
-                              fontWeight: FontWeight.bold,
-                              fontFamily: 'Roboto',
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    if (state is AuthError) ...[
-                      const SizedBox(height: 24),
-                      AppErrorWidget(
-                        message: state.message,
-                        onRetry: _handleRegister,
-                      ),
-                    ],
-                  ],
+                    );
+                  },
                 ),
               ),
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }
@@ -364,120 +222,73 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
-    required String hint,
     required IconData prefixIcon,
     bool isPassword = false,
     bool isPasswordVisible = false,
-    VoidCallback? onPasswordVisibilityToggle,
+    VoidCallback? onVisibilityToggle,
+    TextInputType? keyboardType,
+    bool enabled = true,
     String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
+      enabled: enabled,
       obscureText: isPassword && !isPasswordVisible,
-      style: const TextStyle(
-        fontSize: 16,
-        color: Color(0xFF333333),
-        fontFamily: 'Roboto',
-      ),
+      keyboardType: keyboardType,
+      validator: validator ?? (value) {
+        if (value == null || value.isEmpty) return '$label is required';
+        return null;
+      },
       decoration: InputDecoration(
         labelText: label,
-        hintText: hint,
-        prefixIcon: Icon(
-          prefixIcon,
-          color: const Color(0xFF4A90E2), // primaryColor from design.json
-        ),
+        prefixIcon: Icon(prefixIcon),
         suffixIcon: isPassword
             ? IconButton(
                 icon: Icon(
                   isPasswordVisible ? Icons.visibility_off : Icons.visibility,
-                  color: const Color(0xFF4A90E2),
                 ),
-                onPressed: onPasswordVisibilityToggle,
+                onPressed: onVisibilityToggle,
               )
             : null,
-        labelStyle: TextStyle(
-          color: const Color(0xFF333333).withValues(alpha: 0.7),
-          fontFamily: 'Roboto',
-        ),
-        hintStyle: TextStyle(
-          color: const Color(0xFF333333).withValues(alpha: 0.5),
-          fontFamily: 'Roboto',
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(
-            8,
-          ), // borderRadius from design.json
-          borderSide: const BorderSide(
-            color: Color(0xFFCCCCCC), // border color from design.json
-            width: 1,
-          ),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFCCCCCC), width: 1),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(
-            color: Color(0xFF4A90E2), // focusedBorder color from design.json
-            width: 2,
-          ),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(
-            color: Color(0xFFD0021B), // errorColor from design.json
-            width: 1,
-          ),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFD0021B), width: 2),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          vertical: 16,
-          horizontal: 16,
-        ),
       ),
-      validator: validator,
     );
   }
 
-  Widget _buildRegisterButton() {
-    return ElevatedButton(
-      onPressed: _isLoading ? null : _handleRegister,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(
-          0xFF4A90E2,
-        ), // primaryColor from design.json
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(
-          vertical: 12, // padding from design.json
-          horizontal: 24,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(
-            8,
-          ), // borderRadius from design.json
-        ),
-        elevation: 2, // elevation from design.json
-        textStyle: const TextStyle(
-          fontSize: 18, // button fontSize from design.json
-          fontWeight: FontWeight.bold,
-          fontFamily: 'Roboto',
-          letterSpacing: 1.25, // letterSpacing from design.json
-        ),
+  Widget _buildRegisterButton(bool isLoading) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: isLoading ? null : _handleRegister,
+        child: isLoading
+            ? const SizedBox(
+                height: 24,
+                width: 24,
+                child: CircularProgressIndicator(strokeWidth: 3, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+              )
+            : const Text('Register'),
       ),
-      child: _isLoading
-          ? const SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-            )
-          : const Text('REGISTER'),
+    );
+  }
+   
+  Widget _buildLoginLink() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Text(
+          "Already have an account? ",
+          style: TextStyle(color: Colors.black54),
+        ),
+        GestureDetector(
+          onTap: () => Navigator.pop(context),
+          child: Text(
+            'Login',
+            style: TextStyle(
+              color: AppTheme.primaryColor,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

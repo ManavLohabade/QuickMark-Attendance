@@ -1,3 +1,6 @@
+// lib/presentation/widgets/attendance_stats_card.dart
+// MODIFIED TO BE THEME-AWARE
+
 import 'package:flutter/material.dart';
 
 class AttendanceStatsCard extends StatelessWidget {
@@ -8,13 +11,12 @@ class AttendanceStatsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final stats = _calculateStats();
+    final theme = Theme.of(context); // Get the current theme
 
     return Card(
-      elevation: 4, // card elevation from design.json
+      elevation: 2,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(
-          12,
-        ), // card borderRadius from design.json
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -23,19 +25,17 @@ class AttendanceStatsCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(
-                  Icons.analytics,
-                  color: Color(0xFF4A90E2), // primaryColor from design.json
+                Icon(
+                  Icons.analytics_outlined,
+                  color: theme.colorScheme.primary,
                   size: 24,
                 ),
                 const SizedBox(width: 8),
-                const Text(
+                 Text(
                   'Attendance Statistics',
-                  style: TextStyle(
-                    fontSize: 20, // title fontSize from design.json
+                  style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF333333), // textColor from design.json
-                    fontFamily: 'Roboto',
+                    // ## FIX: Removed hardcoded dark color ##
                   ),
                 ),
               ],
@@ -45,18 +45,20 @@ class AttendanceStatsCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: _buildStatItem(
+                    context,
                     'Total Classes',
                     stats['total'].toString(),
-                    const Color(0xFF4A90E2),
+                    theme.colorScheme.secondary,
                     Icons.class_,
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: _buildStatItem(
+                    context,
                     'Present',
                     stats['present'].toString(),
-                    const Color(0xFF50E3C2), // accentColor from design.json
+                    Colors.green,
                     Icons.check_circle,
                   ),
                 ),
@@ -67,15 +69,17 @@ class AttendanceStatsCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: _buildStatItem(
+                    context,
                     'Absent',
                     stats['absent'].toString(),
-                    const Color(0xFFD0021B), // errorColor from design.json
+                    theme.colorScheme.error,
                     Icons.cancel,
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: _buildStatItem(
+                    context,
                     'Percentage',
                     '${stats['percentage'].toStringAsFixed(1)}%',
                     _getPercentageColor(stats['percentage']),
@@ -85,7 +89,7 @@ class AttendanceStatsCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 20),
-            _buildAttendanceBar(stats['percentage']),
+            _buildAttendanceBar(context, stats['percentage']),
           ],
         ),
       ),
@@ -98,9 +102,8 @@ class AttendanceStatsCard extends StatelessWidget {
     }
 
     final total = attendanceRecords.length;
-    final present = attendanceRecords
-        .where((record) => record.present == true)
-        .length;
+    final present =
+        attendanceRecords.where((record) => record.present == true).length;
     final absent = total - present;
     final percentage = total > 0 ? (present / total) * 100 : 0.0;
 
@@ -114,26 +117,28 @@ class AttendanceStatsCard extends StatelessWidget {
 
   Color _getPercentageColor(double percentage) {
     if (percentage >= 75) {
-      return const Color(0xFF50E3C2); // accentColor - good
+      return Colors.green;
     } else if (percentage >= 50) {
-      return const Color(0xFFF5A623); // warningColor - average
+      return Colors.orange;
     } else {
-      return const Color(0xFFD0021B); // errorColor - poor
+      return Colors.red;
     }
   }
 
   Widget _buildStatItem(
+    BuildContext context,
     String label,
     String value,
     Color color,
     IconData icon,
   ) {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3), width: 1),
       ),
       child: Column(
         children: [
@@ -145,17 +150,15 @@ class AttendanceStatsCard extends StatelessWidget {
               fontSize: 24,
               fontWeight: FontWeight.bold,
               color: color,
-              fontFamily: 'Roboto',
             ),
           ),
           const SizedBox(height: 4),
           Text(
             label,
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
-              color: const Color(0xFF333333).withValues(alpha: 0.7),
-              fontFamily: 'Roboto',
+            style: theme.textTheme.bodySmall?.copyWith(
+              // ## FIX: Using theme text color ##
+              color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
             ),
           ),
         ],
@@ -163,29 +166,26 @@ class AttendanceStatsCard extends StatelessWidget {
     );
   }
 
-  Widget _buildAttendanceBar(double percentage) {
+  Widget _buildAttendanceBar(BuildContext context, double percentage) {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+             Text(
               'Overall Progress',
-              style: TextStyle(
-                fontSize: 14,
+              style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF333333),
-                fontFamily: 'Roboto',
+                // ## FIX: Removed hardcoded dark color ##
               ),
             ),
             Text(
               '${percentage.toStringAsFixed(1)}%',
-              style: TextStyle(
-                fontSize: 14,
+              style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: _getPercentageColor(percentage),
-                fontFamily: 'Roboto',
               ),
             ),
           ],
@@ -193,8 +193,9 @@ class AttendanceStatsCard extends StatelessWidget {
         const SizedBox(height: 8),
         Container(
           height: 8,
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            color: Colors.grey[300],
+            color: theme.colorScheme.surfaceVariant,
             borderRadius: BorderRadius.circular(4),
           ),
           child: FractionallySizedBox(
@@ -211,10 +212,9 @@ class AttendanceStatsCard extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           _getAttendanceMessage(percentage),
-          style: TextStyle(
-            fontSize: 12,
-            color: const Color(0xFF333333).withValues(alpha: 0.7),
-            fontFamily: 'Roboto',
+          style: theme.textTheme.bodySmall?.copyWith(
+            // ## FIX: Using theme text color ##
+            color: theme.textTheme.bodySmall?.color?.withOpacity(0.7)
           ),
         ),
       ],

@@ -6,7 +6,7 @@ import 'package:camera/camera.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
-import 'package:image_picker/image_picker.dart';
+// import 'package:image_picker/image_picker.dart';
 import '../../bloc/face/face_bloc.dart';
 import '../../bloc/face/face_state.dart';
 import '../../bloc/auth/auth_bloc.dart';
@@ -635,11 +635,16 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen>
           padding: const EdgeInsets.all(16.0),
           decoration: const BoxDecoration(
             color: Color(0xFF4A90E2), // primaryColor from design.json
+            gradient: LinearGradient(
+              colors: [Color(0xFF4A90E2), Color(0xFF2A56C6)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
           ),
           child: Column(
             children: [
               const Icon(Icons.face, size: 32, color: Colors.white),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               const Text(
                 'Position your face in the frame',
                 style: TextStyle(
@@ -737,7 +742,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen>
               // Face Detection Status
               Container(
                 padding: const EdgeInsets.symmetric(
-                  vertical: 8,
+                  vertical: 12,
                   horizontal: 16,
                 ),
                 decoration: BoxDecoration(
@@ -808,7 +813,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen>
                     elevation: 2, // elevation from design.json
                     textStyle: const TextStyle(
                       fontSize: 18, // button fontSize from design.json
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                       fontFamily: 'Roboto',
                       letterSpacing: 1.25, // letterSpacing from design.json
                     ),

@@ -1,3 +1,5 @@
+// main.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -18,6 +20,7 @@ import 'domain/repositories/attendance_repository.dart';
 // Presentation
 import 'presentation/bloc/auth/auth.dart';
 import 'presentation/bloc/attendance/attendance_bloc.dart';
+import 'presentation/bloc/theme/theme_cubit.dart';
 import 'presentation/bloc/face/face_bloc.dart';
 import 'presentation/screens/login/login_screen.dart';
 import 'presentation/screens/register/register_screen.dart';
@@ -72,6 +75,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
+        BlocProvider(create: (context) => ThemeCubit()),
         BlocProvider<AuthBloc>(
           create: (context) =>
               AuthBloc(authRepository: authRepository)
@@ -88,39 +92,44 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ],
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'QuickMark',
-        theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
-        themeMode: ThemeMode.system,
-        routes: {
-          '/': (context) => BlocBuilder<AuthBloc, AuthState>(
-            builder: (context, state) {
-              if (state is AuthLoading) {
-                return const Scaffold(
-                  body: Center(child: CircularProgressIndicator()),
-                );
-              } else if (state is AuthAuthenticated) {
-                return const HomeScreen();
-              } else {
-                return const LoginScreen();
-              }
+      child: BlocBuilder<ThemeCubit, ThemeMode>(
+        builder: (context, themeMode) {
+          return MaterialApp(
+            key: ValueKey(themeMode),
+            debugShowCheckedModeBanner: false,
+            title: 'QuickMark',
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: themeMode, // Use themeMode from ThemeCubit
+            routes: {
+              '/': (context) => BlocBuilder<AuthBloc, AuthState>(
+                builder: (context, state) {
+                  if (state is AuthLoading) {
+                    return const Scaffold(
+                      body: Center(child: CircularProgressIndicator()),
+                    );
+                  } else if (state is AuthAuthenticated) {
+                    return const HomeScreen();
+                  } else {
+                    return const LoginScreen();
+                  }
+                },
+              ),
+              LoginScreen.routeName: (context) => const LoginScreen(),
+              RegisterScreen.routeName: (context) => const RegisterScreen(),
+              HomeScreen.routeName: (context) => const HomeScreen(),
+              FaceRegistrationScreen.routeName: (context) =>
+                  const FaceRegistrationScreen(),
+              FaceVerificationScreen.routeName: (context) =>
+                  const FaceVerificationScreen(),
+              AttendanceHistoryScreen.routeName: (context) =>
+                  const AttendanceHistoryScreen(),
+              ProfileScreen.routeName: (context) => const ProfileScreen(),
+              QRScannerScreen.routeName: (context) => const QRScannerScreen(),
             },
-          ),
-          LoginScreen.routeName: (context) => const LoginScreen(),
-          RegisterScreen.routeName: (context) => const RegisterScreen(),
-          HomeScreen.routeName: (context) => const HomeScreen(),
-          FaceRegistrationScreen.routeName: (context) =>
-              const FaceRegistrationScreen(),
-          FaceVerificationScreen.routeName: (context) =>
-              const FaceVerificationScreen(),
-          AttendanceHistoryScreen.routeName: (context) =>
-              const AttendanceHistoryScreen(),
-          ProfileScreen.routeName: (context) => const ProfileScreen(),
-          QRScannerScreen.routeName: (context) => const QRScannerScreen(),
+            initialRoute: '/',
+          );
         },
-        initialRoute: '/',
       ),
     );
   }
